@@ -1,0 +1,106 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# =========================
+# Virtual Environment
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Database / Vector Store
+# =========================
+db/chroma/
+*.sqlite3
+*.db
+
+# =========================
+# Model Cache
+# =========================
+.cache/
+models/
+hf_cache/
+
+# =========================
+# Generated Outputs
+# =========================
+outputs/figures/*
+outputs/reports/*
+outputs/predictions/*
+
+# Keep folder structure
+!outputs/figures/.gitkeep
+!outputs/reports/.gitkeep
+!outputs/predictions/.gitkeep
+
+# =========================
+# Temporary files
+# =========================
+tmp/
+temp/
+*.tmp
+
+# =========================
+# Testing / Coverage
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Streamlit
+# =========================
+.streamlit/secrets.toml
+
+# =========================
+# Optional large datasets
+# =========================
+data/raw/*
+data/processed/*
+data/chunks/*
+
+# Keep folder structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/chunks/.gitkeep

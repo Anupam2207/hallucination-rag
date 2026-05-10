@@ -1,0 +1,10 @@
+What is retrieval augmented generation?
+What is hallucination in large language models?
+How do embeddings work in NLP?
+What is semantic search?
+What is fact verification?
+How does a vector database work?
+What is ChromaDB?
+What is cosine similarity?
+How do language models generate text?
+What is natural language inference?

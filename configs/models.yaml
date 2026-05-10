@@ -1,0 +1,13 @@
+generator:
+  provider: "ollama"
+  primary_model: "qwen3:4b"
+  fallback_model: "llama3.2:3b"
+
+embedding:
+  model_name: "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"
+
+verification:
+  nli_model_name: "cross-encoder/nli-deberta-v3-small"
+
+spacy:
+  sentencizer_only: true

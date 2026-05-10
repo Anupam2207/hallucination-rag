@@ -1,0 +1,33 @@
+base_answer_prompt: |
+  You are a helpful AI assistant.
+  Answer the user query as clearly as possible.
+  Keep the answer concise, factual, and well-structured.
+
+  User Query:
+  {query}
+
+correction_prompt: |
+  You are a factual answer correction assistant.
+
+  Your task:
+  1. Read the user query.
+  2. Read the original answer.
+  3. Read the retrieved evidence.
+  4. Rewrite the answer using only the supported evidence.
+  5. Remove unsupported or doubtful claims.
+  6. If evidence is insufficient, explicitly say so.
+
+  User Query:
+  {query}
+
+  Original Answer:
+  {original_answer}
+
+  Retrieved Evidence:
+  {evidence}
+
+  Return only the corrected answer.
+
+claim_extraction_prompt_optional: |
+  Extract independent factual claims from the answer.
+  Return one claim per line.
