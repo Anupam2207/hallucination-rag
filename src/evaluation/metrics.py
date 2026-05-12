@@ -1,58 +1,39 @@
+from typing import Any, Dict
+
+
 class HallucinationMetrics:
+    @staticmethod
+    def support_ratio(result: Dict[str, Any]) -> float:
+        return float(result.get('support_ratio', 0.0))
 
     @staticmethod
-    def compute_support_ratio(
-        claim_results
-    ):
-
-        total = len(
-            claim_results
-        )
-
-        if total == 0:
-            return 0.0
-
-        supported = sum(
-            1
-            for x in claim_results
-            if x["label"] == "SUPPORTED"
-        )
-
-        return round(
-            supported / total,
-            3
-        )
+    def hallucination_rate(result: Dict[str, Any]) -> float:
+        return float(result.get('hallucination_rate', 0.0))
 
     @staticmethod
-    def compute_hallucination_rate(
-        claim_results
-    ):
-
-        total = len(
-            claim_results
-        )
-
-        if total == 0:
-            return 0.0
-
-        hallucinated = sum(
-            1
-            for x in claim_results
-            if x["label"] == "POTENTIAL_HALLUCINATION"
-        )
-
-        return round(
-            hallucinated / total,
-            3
-        )
+    def factual_improvement(before: Dict[str, Any], after: Dict[str, Any]) -> float:
+        return HallucinationMetrics.support_ratio(after) - HallucinationMetrics.support_ratio(before)
 
     @staticmethod
-    def compute_improvement(
-        before,
-        after
-    ):
+    def correction_success(before: Dict[str, Any], after: Dict[str, Any]) -> bool:
+        improved_support = HallucinationMetrics.support_ratio(after) > HallucinationMetrics.support_ratio(before)
+        reduced_hallucination = HallucinationMetrics.hallucination_rate(after) < HallucinationMetrics.hallucination_rate(before)
+        return improved_support or reduced_hallucination
 
-        return round(
-            after - before,
-            3
-        )
+    @staticmethod
+    def summary(before: Dict[str, Any], after: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            'raw_support_ratio': HallucinationMetrics.support_ratio(before),
+            'corrected_support_ratio': HallucinationMetrics.support_ratio(after),
+            'raw_hallucination_rate': HallucinationMetrics.hallucination_rate(before),
+            'corrected_hallucination_rate': HallucinationMetrics.hallucination_rate(after),
+            'factual_improvement': HallucinationMetrics.factual_improvement(before, after),
+            'correction_success': HallucinationMetrics.correction_success(before, after),
+        }
+
+
+def compare_detection_results(before: Dict[str, Any], after: Dict[str, Any]) -> Dict[str, Any]:
+    summary = HallucinationMetrics.summary(before, after)
+    summary['support_improvement'] = summary['factual_improvement']
+    summary['hallucination_reduction'] = summary['raw_hallucination_rate'] - summary['corrected_hallucination_rate']
+    return summary

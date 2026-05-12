@@ -1,70 +1,89 @@
+import csv
+import sys
 from pathlib import Path
-import json
-import pandas as pd
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.config import get_config_value
+from src.ingestion.chunker import build_chunks_for_documents
 from src.ingestion.loaders import load_documents
-from src.ingestion.chunker import chunk_text
+from src.ingestion.preprocess import preprocess_documents
+from src.logger import get_logger
+from src.paths import CHUNKS_DIR, PROCESSED_DATA_DIR, RAW_DATA_DIR, ensure_directories
+from src.utils.json_utils import write_jsonl
 
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-
-RAW_DIR = BASE_DIR / "data" / "raw"
-PROCESSED_DIR = BASE_DIR / "data" / "processed"
-CHUNKS_DIR = BASE_DIR / "data" / "chunks"
+logger = get_logger('ingest_documents')
 
 
-def main():
+def write_csv(path: Path, rows: list[dict]) -> None:
+    if not rows:
+        path.write_text('', encoding='utf-8')
+        return
+    with open(path, 'w', encoding='utf-8', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
 
-    PROCESSED_DIR.mkdir(exist_ok=True)
-    CHUNKS_DIR.mkdir(exist_ok=True)
 
-    print("Loading documents...")
+def main() -> None:
+    ensure_directories()
+    logger.info('Loading documents from %s', RAW_DATA_DIR)
+    documents = load_documents(RAW_DATA_DIR)
+    if not documents:
+        raise RuntimeError(
+            'No raw documents found. Add files under data/raw/txt, data/raw/md, data/raw/json, or data/raw/pdf.'
+        )
 
-    documents = load_documents(RAW_DIR)
+    processed_documents = preprocess_documents(documents)
+    logger.info('Loaded %s documents, %s remained after preprocessing.', len(documents), len(processed_documents))
 
-    print(f"Loaded {len(documents)} documents")
+    chunk_size = int(get_config_value('settings', 'retrieval', 'chunk_size', default=500))
+    chunk_overlap = int(get_config_value('settings', 'retrieval', 'chunk_overlap', default=100))
+    chunks = build_chunks_for_documents(processed_documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    logger.info('Generated %s chunks.', len(chunks))
 
-    all_chunks = []
-    metadata = []
+    processed_jsonl = PROCESSED_DATA_DIR / 'cleaned_documents.jsonl'
+    processed_csv = PROCESSED_DATA_DIR / 'corpus_metadata.csv'
+    chunks_jsonl = CHUNKS_DIR / 'chunks.jsonl'
+    chunks_csv = CHUNKS_DIR / 'chunk_metadata.csv'
 
-    chunk_id = 0
-
-    for doc in documents:
-
-        chunks = chunk_text(doc["text"])
-
-        for chunk in chunks:
-
-            all_chunks.append({
-                "chunk_id": chunk_id,
-                "text": chunk
-            })
-
-            metadata.append({
-                "chunk_id": chunk_id,
-                "source": doc["source"],
-                "filename": doc["filename"]
-            })
-
-            chunk_id += 1
-
-    chunk_file = CHUNKS_DIR / "chunks.jsonl"
-
-    with open(chunk_file, "w", encoding="utf-8") as f:
-
-        for row in all_chunks:
-            f.write(json.dumps(row) + "\n")
-
-    metadata_df = pd.DataFrame(metadata)
-
-    metadata_df.to_csv(
-        CHUNKS_DIR / "chunk_metadata.csv",
-        index=False
+    write_jsonl(processed_jsonl, processed_documents)
+    write_csv(
+        processed_csv,
+        [
+            {
+                'doc_id': doc['doc_id'],
+                'file_name': doc['file_name'],
+                'file_type': doc['file_type'],
+                'source_rel': doc['source_rel'],
+                'text_length': doc['text_length'],
+            }
+            for doc in processed_documents
+        ],
+    )
+    write_jsonl(chunks_jsonl, chunks)
+    write_csv(
+        chunks_csv,
+        [
+            {
+                'chunk_id': chunk['chunk_id'],
+                'doc_id': chunk['doc_id'],
+                'chunk_index': chunk['chunk_index'],
+                'file_name': chunk['file_name'],
+                'file_type': chunk['file_type'],
+                'source_rel': chunk['source_rel'],
+                'char_length': chunk['char_length'],
+            }
+            for chunk in chunks
+        ],
     )
 
-    print(f"Created {len(all_chunks)} chunks")
-    print("Ingestion complete")
+    logger.info('Wrote processed documents to %s', processed_jsonl)
+    logger.info('Wrote chunk artifacts to %s', chunks_jsonl)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

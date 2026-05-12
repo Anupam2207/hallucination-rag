@@ -1,6 +1,6 @@
 project:
   name: "Hallucination Detection and Correction in LLMs using RAG"
-  version: "0.1.0"
+  version: "0.2.0"
   random_seed: 42
 
 paths:
@@ -15,6 +15,7 @@ paths:
   figures_dir: "outputs/figures"
 
 retrieval:
+  collection_name: "rag_knowledge"
   chunk_size: 500
   chunk_overlap: 100
   top_k: 4

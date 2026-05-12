@@ -1,0 +1,6 @@
+id,claim,label
+q1_claim1,Retrieval-Augmented Generation combines retrieval and generation,supported
+q2_claim1,ChromaDB is used as a vector database,supported
+q3_claim1,The Transformer paper was published in 2017,supported
+q4_claim1,Hallucination means unsupported or fabricated output,supported
+q5_claim1,Sentence Transformers create dense embeddings,supported

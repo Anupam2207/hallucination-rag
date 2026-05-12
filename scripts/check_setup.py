@@ -1,4 +1,4 @@
-import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -6,16 +6,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from dotenv import load_dotenv
 from src.config import load_all_configs
+from src.generation.ollama_client import OllamaClient
 from src.logger import get_logger
-from src.paths import ensure_directories
+from src.paths import RAW_DATA_DIR, ensure_directories
 
 
 def main() -> None:
-    load_dotenv()
-
     logger = get_logger("setup_check")
+
     logger.info("Creating required directories...")
     ensure_directories()
 
@@ -31,7 +30,20 @@ def main() -> None:
         "NLI verification model: %s",
         configs["models"]["verification"]["nli_model_name"],
     )
-    logger.info("OLLAMA_HOST: %s", os.getenv("OLLAMA_HOST", "Not set"))
+
+    raw_files = sum(1 for path in RAW_DATA_DIR.rglob("*") if path.is_file())
+    logger.info("Raw knowledge-base files found: %s", raw_files)
+
+    ollama_on_path = shutil.which("ollama") is not None
+    logger.info("Ollama CLI available on PATH: %s", ollama_on_path)
+
+    client = OllamaClient()
+    ok, message = client.health_check()
+    if ok:
+        logger.info("Ollama health check: %s", message)
+    else:
+        logger.warning("Ollama health check skipped/failed: %s", message)
+
     logger.info("All basic setup checks passed.")
 
 

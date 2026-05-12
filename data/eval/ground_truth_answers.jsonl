@@ -1,0 +1,5 @@
+{"id": "q1", "answer": "Retrieval-Augmented Generation combines a retriever with a generator so the model can answer using retrieved external evidence."}
+{"id": "q2", "answer": "ChromaDB is used to store embeddings and retrieve semantically similar passages in lightweight RAG systems."}
+{"id": "q3", "answer": "The Transformer architecture was introduced in the 2017 paper 'Attention Is All You Need' by Vaswani and colleagues."}
+{"id": "q4", "answer": "Hallucination in large language models refers to fluent output that is incorrect, fabricated, or unsupported by evidence."}
+{"id": "q5", "answer": "Sentence Transformers are used to convert sentences or passages into dense vectors for tasks such as semantic search and retrieval."}

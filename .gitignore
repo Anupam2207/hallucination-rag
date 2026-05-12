@@ -1,106 +1,51 @@
-# =========================
 # Python
-# =========================
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
+*.pyo
 *.pyd
-*.egg-info/
-dist/
-build/
+*.so
 
-# =========================
-# Virtual Environment
-# =========================
+# Virtual environments
 .venv/
 venv/
 env/
 
-# =========================
-# Environment Variables
-# =========================
+# Environment files
 .env
-.env.*
 
-# =========================
-# IDE / Editor
-# =========================
-.vscode/
-.idea/
-*.swp
-*.swo
+# macOS
+.DS_Store
 
-# =========================
 # Jupyter
-# =========================
 .ipynb_checkpoints/
 
-# =========================
-# OS Files
-# =========================
-.DS_Store
-Thumbs.db
-
-# =========================
-# Logs
-# =========================
-logs/
-*.log
-
-# =========================
-# Database / Vector Store
-# =========================
-db/chroma/
-*.sqlite3
-*.db
-
-# =========================
-# Model Cache
-# =========================
-.cache/
-models/
-hf_cache/
-
-# =========================
-# Generated Outputs
-# =========================
-outputs/figures/*
-outputs/reports/*
-outputs/predictions/*
-
-# Keep folder structure
-!outputs/figures/.gitkeep
-!outputs/reports/.gitkeep
-!outputs/predictions/.gitkeep
-
-# =========================
-# Temporary files
-# =========================
-tmp/
-temp/
-*.tmp
-
-# =========================
-# Testing / Coverage
-# =========================
+# Pytest
 .pytest_cache/
-.coverage
-htmlcov/
 
-# =========================
 # Streamlit
-# =========================
-.streamlit/secrets.toml
+.streamlit/
 
-# =========================
-# Optional large datasets
-# =========================
-data/raw/*
-data/processed/*
-data/chunks/*
+# Outputs
+outputs/runs/*
+outputs/predictions/*
+outputs/reports/*
+outputs/figures/*
 
-# Keep folder structure
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/chunks/.gitkeep
+# Keep placeholders
+!outputs/runs/.gitkeep
+!outputs/predictions/.gitkeep
+!outputs/reports/.gitkeep
+!outputs/figures/.gitkeep
+
+# Chroma DB
+db/chroma/
+
+# Processed data
+data/processed/*.jsonl
+data/processed/*.csv
+data/chunks/*.jsonl
+data/chunks/*.csv
+
+# Logs
+*.log
+logs/
