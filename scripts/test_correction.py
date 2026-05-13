@@ -1,52 +1,23 @@
-from src.generation.base_answer import BaseAnswerGenerator
-from src.retrieval.retriever import SemanticRetriever
-from src.generation.correction import AnswerCorrector
+import json
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.pipeline import HallucinationRAGPipeline
 
 
-def main():
-
-    query = "What is retrieval augmented generation?"
-
-    print(f"\nQUERY:\n{query}\n")
-
-    generator = BaseAnswerGenerator()
-
-    raw_answer = generator.generate_answer(
-        query
-    )
-
-    print("RAW ANSWER:\n")
-    print(raw_answer)
-
-    retriever = SemanticRetriever()
-
-    retrieval = retriever.retrieve(
-        query
-    )
-
-    evidence_list = retrieval[
-        "documents"
-    ][0]
-
-    print("\nRETRIEVED EVIDENCE:\n")
-
-    for i, evidence in enumerate(
-        evidence_list
-    ):
-
-        print(
-            f"{i+1}. {evidence}"
-        )
-
-    corrector = AnswerCorrector()
-
-    corrected = corrector.correct(
-        query=query,
-        evidence_list=evidence_list
-    )
-
-    print("\nCORRECTED ANSWER:\n")
-    print(corrected)
+def main() -> None:
+    query = "What is retrieval-augmented generation?"
+    result = HallucinationRAGPipeline().run(query)
+    print(json.dumps({
+        "query": result["query"],
+        "raw_answer": result["raw_answer"],
+        "corrected_answer": result["corrected_answer"],
+        "metrics": result["metrics"],
+    }, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

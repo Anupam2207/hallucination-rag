@@ -14,19 +14,23 @@ def get_pipeline() -> HallucinationRAGPipeline:
 
 def main() -> None:
     st.title("Hallucination Detection and Correction in LLMs using RAG")
-    st.caption("Lightweight M.Tech project demo using local Ollama + ChromaDB + similarity-based claim support scoring")
+    st.caption(
+        "Lightweight M.Tech project demo using local Ollama, ChromaDB, "
+        "and claim-level evidence support scoring."
+    )
 
     query = st.text_input("Enter your query", value="What is retrieval-augmented generation?")
+    top_k = st.slider("Retrieved passages", min_value=1, max_value=8, value=4)
     run_clicked = st.button("Run pipeline")
 
     if not run_clicked:
-        st.info("Build the knowledge base and vector index first, then run the pipeline.")
+        st.info("Run ingestion and vector indexing first, then click Run pipeline.")
         return
 
     pipeline = get_pipeline()
 
     try:
-        result = pipeline.run(query)
+        result = pipeline.run(query, top_k=top_k)
     except Exception as exc:
         st.error(str(exc))
         st.stop()
@@ -43,12 +47,18 @@ def main() -> None:
         st.write(result["corrected_answer"])
 
     metrics = result["metrics"]
-    metric_cols = st.columns(5)
-    metric_cols[0].metric("Raw support ratio", f"{metrics['raw_support_ratio']:.2f}")
-    metric_cols[1].metric("Corrected support ratio", f"{metrics['corrected_support_ratio']:.2f}")
-    metric_cols[2].metric("Raw hallucination rate", f"{metrics['raw_hallucination_rate']:.2f}")
-    metric_cols[3].metric("Corrected hallucination rate", f"{metrics['corrected_hallucination_rate']:.2f}")
-    metric_cols[4].metric("Factual improvement", f"{metrics['factual_improvement']:.2f}")
+    metric_cols = st.columns(6)
+    metric_cols[0].metric("Raw support", f"{metrics['raw_support_ratio']:.2f}")
+    metric_cols[1].metric("Corrected support", f"{metrics['corrected_support_ratio']:.2f}")
+    metric_cols[2].metric("Raw weighted", f"{metrics['raw_weighted_support_ratio']:.2f}")
+    metric_cols[3].metric("Corrected weighted", f"{metrics['corrected_weighted_support_ratio']:.2f}")
+    metric_cols[4].metric("Hallucination Δ", f"{metrics['hallucination_reduction']:.2f}")
+    metric_cols[5].metric("Factual improvement", f"{metrics['factual_improvement']:.2f}")
+
+    if metrics.get("correction_success"):
+        st.success("Correction success according to the current metric policy.")
+    else:
+        st.warning("Correction did not improve the current metric score for this query.")
 
     st.subheader("Retrieved evidence")
     render_evidence(result["evidence"])

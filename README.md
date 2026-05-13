@@ -107,3 +107,29 @@ The repository ships with a small curated demo corpus under `data/raw/` and a sm
 - If Ollama is not running, answer generation will fail with a readable error.
 - If the Chroma index has not been built yet, retrieval will return no evidence and the UI or CLI will show a warning.
 - The hallucination detector currently uses similarity-based support scoring. The NLI verifier is intentionally left for a later phase.
+
+## Chroma telemetry warning on Windows
+
+If you see messages such as:
+
+```text
+Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+```
+
+the pipeline can still run. It is caused by a Chroma/PostHog dependency mismatch in some environments. This project pins `posthog<4.0.0` in `requirements.txt` to reduce the warning. If the warning continues after updating this zip, run:
+
+```bash
+pip install "posthog<4.0.0"
+```
+
+Then rebuild or rerun the query.
+
+## Recommended validation order
+
+```bash
+python scripts/check_setup.py
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+python scripts/run_single_query.py --query "What is retrieval-augmented generation?"
+streamlit run streamlit_app.py --server.fileWatcherType none
+```

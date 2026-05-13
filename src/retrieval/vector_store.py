@@ -1,10 +1,15 @@
+import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import Any, Dict, List
 
 from src.paths import CHROMA_DIR
 
-if TYPE_CHECKING:
-    import chromadb
+
+# Safe telemetry suppression for Chroma.
+# Do NOT set CHROMA_PRODUCT_TELEMETRY_IMPL here; some Chroma versions do not have
+# chromadb.telemetry.product.null.NullTelemetry and will crash during startup.
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+os.environ.setdefault("CHROMA_TELEMETRY", "False")
 
 
 class ChromaVectorStore:
@@ -14,10 +19,19 @@ class ChromaVectorStore:
         collection_name: str = "rag_knowledge",
     ) -> None:
         import chromadb
+        from chromadb.config import Settings
 
         self.persist_dir = str(Path(persist_dir or CHROMA_DIR).resolve())
         self.collection_name = collection_name
-        self.client = chromadb.PersistentClient(path=self.persist_dir)
+
+        self.client = chromadb.PersistentClient(
+            path=self.persist_dir,
+            settings=Settings(
+                anonymized_telemetry=False,
+                allow_reset=True,
+            ),
+        )
+
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
             metadata={"hnsw:space": "cosine"},
@@ -28,6 +42,7 @@ class ChromaVectorStore:
             self.client.delete_collection(self.collection_name)
         except Exception:
             pass
+
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
             metadata={"hnsw:space": "cosine"},
@@ -45,6 +60,7 @@ class ChromaVectorStore:
     ) -> None:
         if not (len(ids) == len(documents) == len(embeddings) == len(metadatas)):
             raise ValueError("ids, documents, embeddings, and metadatas must have the same length")
+
         if not ids:
             return
 
@@ -56,8 +72,19 @@ class ChromaVectorStore:
         )
 
     def query(self, query_embedding: List[float], top_k: int = 4) -> Dict[str, Any]:
+        collection_count = self.count()
+        if collection_count == 0:
+            return {
+                "documents": [[]],
+                "metadatas": [[]],
+                "distances": [[]],
+                "ids": [[]],
+            }
+
+        n_results = min(max(1, int(top_k)), collection_count)
+
         return self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k,
+            n_results=n_results,
             include=["documents", "metadatas", "distances"],
         )

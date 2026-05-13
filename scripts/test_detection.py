@@ -1,49 +1,18 @@
-from src.generation.base_answer import BaseAnswerGenerator
-from src.retrieval.retriever import SemanticRetriever
-from src.detection.detector import HallucinationDetector
+import json
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.pipeline import HallucinationRAGPipeline
 
 
-def main():
-
-    query = "What is retrieval augmented generation?"
-
-    print(f"\nQuery: {query}\n")
-
-    generator = BaseAnswerGenerator()
-
-    answer = generator.generate_answer(
-        query
-    )
-
-    print("RAW ANSWER:\n")
-    print(answer)
-
-    retriever = SemanticRetriever()
-
-    retrieved = retriever.retrieve(
-        query
-    )
-
-    evidence_list = retrieved[
-        "documents"
-    ][0]
-
-    detector = HallucinationDetector()
-
-    results = detector.detect(
-        answer,
-        evidence_list
-    )
-
-    print("\nCLAIM ANALYSIS:\n")
-
-    for row in results:
-
-        print(
-            f"{row['label']} | "
-            f"{row['score']} | "
-            f"{row['claim']}"
-        )
+def main() -> None:
+    query = "What is retrieval-augmented generation?"
+    result = HallucinationRAGPipeline().run(query)
+    print(json.dumps(result["raw_detection"], indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

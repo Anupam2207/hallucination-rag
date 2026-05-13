@@ -82,7 +82,7 @@ def load_documents(raw_data_dir: Path) -> list[dict]:
         documents.append(
             {
                 'doc_id': _make_doc_id(relative_path),
-                'source_path': str(file_path),
+                'source_path': relative_path,
                 'source_rel': relative_path,
                 'file_name': file_path.name,
                 'file_type': file_path.suffix.lower().lstrip('.'),

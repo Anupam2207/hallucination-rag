@@ -1,22 +1,19 @@
+import json
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.retrieval.retriever import SemanticRetriever
 
 
-def main():
-
+def main() -> None:
+    query = "What is retrieval-augmented generation?"
     retriever = SemanticRetriever()
-
-    query = "What is retrieval augmented generation?"
-
-    print(f"\nQuery: {query}\n")
-
     results = retriever.retrieve(query)
-
-    docs = results["documents"][0]
-
-    for i, doc in enumerate(docs):
-
-        print(f"\nEvidence {i+1}:")
-        print(doc)
+    print(json.dumps({"query": query, "evidence": results}, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -10,8 +10,12 @@ def flatten_pipeline_result(result: Dict[str, Any]) -> Dict[str, Any]:
         "evidence_count": len(result.get("evidence", [])),
         "raw_support_ratio": metrics.get("raw_support_ratio", 0.0),
         "corrected_support_ratio": metrics.get("corrected_support_ratio", 0.0),
+        "raw_weighted_support_ratio": metrics.get("raw_weighted_support_ratio", 0.0),
+        "corrected_weighted_support_ratio": metrics.get("corrected_weighted_support_ratio", 0.0),
         "raw_hallucination_rate": metrics.get("raw_hallucination_rate", 0.0),
         "corrected_hallucination_rate": metrics.get("corrected_hallucination_rate", 0.0),
+        "hallucination_reduction": metrics.get("hallucination_reduction", 0.0),
+        "claim_count_reduction": metrics.get("claim_count_reduction", 0),
         "factual_improvement": metrics.get("factual_improvement", 0.0),
         "correction_success": metrics.get("correction_success", False),
     }
