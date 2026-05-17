@@ -1,0 +1,1 @@
+FAISS is a library for similarity search and clustering of dense vectors. It was created by Meta and is often used to build vector indexes for retrieval systems.

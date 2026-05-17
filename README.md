@@ -27,6 +27,8 @@ Implemented in this update:
 - single-query pipeline runner
 - working Streamlit entry point
 - correction that uses the original raw answer
+- correction prompt safeguards against common RAG hallucinations such as unsupported fine-tuning claims
+- hybrid support scoring with semantic similarity plus narrow rule-based caps for specific unsupported details
 - basic evaluation metrics
 - sample corpus and demo queries
 
@@ -106,7 +108,7 @@ The repository ships with a small curated demo corpus under `data/raw/` and a sm
 
 - If Ollama is not running, answer generation will fail with a readable error.
 - If the Chroma index has not been built yet, retrieval will return no evidence and the UI or CLI will show a warning.
-- The hallucination detector currently uses similarity-based support scoring. The NLI verifier is intentionally left for a later phase.
+- The hallucination detector currently uses similarity-based support scoring plus a small rule-based safeguard for common unsupported details. The NLI verifier is intentionally left for a later phase.
 
 ## Chroma telemetry warning on Windows
 
@@ -133,3 +135,21 @@ python scripts/build_vector_index.py --reset
 python scripts/run_single_query.py --query "What is retrieval-augmented generation?"
 streamlit run streamlit_app.py --server.fileWatcherType none
 ```
+
+## Latest detector/UI update
+
+This version adds the following stability improvements:
+
+- Correction status now has four states: `improved`, `partially_improved`, `no_change`, and `worsened`.
+- The UI no longer shows a green success message when factual improvement is exactly zero.
+- Claim tables are compact by default and show long evidence text inside expandable detail sections.
+- The detector returns rule flags and optional NLI fields for each claim.
+- NLI verification is optional through `configs/settings.yaml` using `detection.enable_nli`.
+
+By default, NLI is disabled to keep the Windows laptop demo lightweight. To test the real NLI model, run:
+
+```bash
+python scripts/test_nli_verifier.py --enable
+```
+
+If the model is unavailable or cannot be downloaded, the app falls back to similarity + rule-based verification.

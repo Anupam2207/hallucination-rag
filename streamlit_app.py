@@ -12,6 +12,32 @@ def get_pipeline() -> HallucinationRAGPipeline:
     return HallucinationRAGPipeline()
 
 
+def render_status(metrics: dict) -> None:
+    status = metrics.get("correction_status", "no_change")
+    if status == "improved":
+        st.success("Correction improved factual grounding or reduced hallucination.")
+    elif status == "partially_improved":
+        st.warning("Correction partially improved the answer, but one metric may still need review.")
+    elif status == "no_change":
+        st.warning("Correction preserved the metric score but did not improve it for this query.")
+    else:
+        st.error("Correction worsened the current metric score for this query.")
+
+
+def render_metric_explanation() -> None:
+    with st.expander("What do these metrics mean?"):
+        st.markdown(
+            """
+- **Raw support**: fraction of raw-answer claims strongly supported by retrieved evidence.
+- **Corrected support**: fraction of corrected-answer claims strongly supported by retrieved evidence.
+- **Raw weighted / Corrected weighted**: weighted support where supported = 1.0, weak support = 0.5, unsupported = 0.0.
+- **Hallucination Δ**: raw hallucination rate minus corrected hallucination rate. Higher is better.
+- **Factual improvement**: corrected weighted support minus raw weighted support. Higher is better.
+- **Correction status**: improved, partially improved, no change, or worsened based on the two key before/after metrics.
+"""
+        )
+
+
 def main() -> None:
     st.title("Hallucination Detection and Correction in LLMs using RAG")
     st.caption(
@@ -55,10 +81,8 @@ def main() -> None:
     metric_cols[4].metric("Hallucination Δ", f"{metrics['hallucination_reduction']:.2f}")
     metric_cols[5].metric("Factual improvement", f"{metrics['factual_improvement']:.2f}")
 
-    if metrics.get("correction_success"):
-        st.success("Correction success according to the current metric policy.")
-    else:
-        st.warning("Correction did not improve the current metric score for this query.")
+    render_status(metrics)
+    render_metric_explanation()
 
     st.subheader("Retrieved evidence")
     render_evidence(result["evidence"])

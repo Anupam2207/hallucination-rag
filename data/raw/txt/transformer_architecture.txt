@@ -1,0 +1,1 @@
+The Transformer architecture was introduced in the paper "Attention Is All You Need" in 2017. It relies on self-attention mechanisms to model relationships between tokens. Transformers became the foundation of many modern large language models.

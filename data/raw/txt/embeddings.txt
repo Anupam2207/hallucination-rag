@@ -1,0 +1,1 @@
+Embeddings convert text into dense numerical vectors that preserve semantic meaning. Similar texts have nearby vectors in embedding space.

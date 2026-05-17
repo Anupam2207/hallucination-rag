@@ -1,0 +1,1 @@
+Retrieval-Augmented Generation improves factual accuracy by retrieving relevant external knowledge before generating a response. It combines information retrieval with language generation.

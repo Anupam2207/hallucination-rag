@@ -1,0 +1,1 @@
+A vector database stores dense embeddings and allows similarity search over them. In RAG pipelines, vector databases are used to retrieve passages that are semantically similar to a user query.

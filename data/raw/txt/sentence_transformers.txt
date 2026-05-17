@@ -1,0 +1,1 @@
+Sentence Transformers are models that convert sentences or passages into dense vectors. They are often used for semantic search, clustering, and retrieval in RAG systems.

@@ -1,0 +1,1 @@
+A correction module should not simply generate a new answer from scratch. A better correction step reads the user query, the original answer, and the retrieved evidence together. It then rewrites the answer by keeping supported content, removing unsupported statements, and explicitly acknowledging when evidence is insufficient.

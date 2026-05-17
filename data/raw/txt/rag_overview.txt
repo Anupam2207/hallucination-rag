@@ -1,0 +1,1 @@
+Retrieval-Augmented Generation, usually called RAG, combines a retriever with a generator. The retriever fetches relevant external knowledge, and the generator uses that evidence to produce a grounded answer. RAG is commonly used to reduce unsupported claims in question answering systems.

@@ -2,6 +2,7 @@ from typing import Any
 
 from src.config import get_config_value
 from src.detection.claim_extractor import ClaimExtractor
+from src.detection.nli_verifier import NLIVerifier
 from src.detection.support_scorer import SupportScorer
 from src.retrieval.embedder import EmbeddingModel
 
@@ -12,10 +13,17 @@ class HallucinationDetector:
         extractor: ClaimExtractor | None = None,
         scorer: SupportScorer | None = None,
         support_scorer: SupportScorer | None = None,
+        nli_verifier: NLIVerifier | None = None,
     ) -> None:
-        shared_embedder = EmbeddingModel()
         self.extractor = extractor or ClaimExtractor()
-        self.scorer = scorer or support_scorer or SupportScorer(embedder=shared_embedder)
+        if scorer is not None:
+            self.scorer = scorer
+        elif support_scorer is not None:
+            self.scorer = support_scorer
+        else:
+            self.scorer = SupportScorer(embedder=EmbeddingModel())
+
+        self.nli_verifier = nli_verifier or NLIVerifier()
 
         self.support_threshold = float(
             get_config_value(
@@ -33,38 +41,79 @@ class HallucinationDetector:
                 default=0.40,
             )
         )
+        self.nli_entailment_threshold = float(
+            get_config_value(
+                "settings",
+                "detection",
+                "nli_entailment_threshold",
+                default=0.60,
+            )
+        )
+        self.nli_contradiction_threshold = float(
+            get_config_value(
+                "settings",
+                "detection",
+                "nli_contradiction_threshold",
+                default=0.60,
+            )
+        )
+
+    def _label_from_similarity(self, score: float) -> str:
+        if score >= self.support_threshold:
+            return "supported"
+        if score >= self.warning_threshold:
+            return "weak_support"
+        return "unsupported"
+
+    def _fuse_label(self, similarity_label: str, rule_flags: list[str], nli_result: dict) -> str:
+        if rule_flags:
+            return "unsupported"
+
+        nli_label = nli_result.get("label")
+        nli_score = nli_result.get("score")
+        nli_score = float(nli_score) if nli_score is not None else None
+
+        if nli_label == "contradiction" and nli_score is not None and nli_score >= self.nli_contradiction_threshold:
+            return "unsupported"
+        if nli_label == "entailment" and nli_score is not None and nli_score >= self.nli_entailment_threshold:
+            # NLI confirms support; promote weak related evidence to supported.
+            if similarity_label in {"supported", "weak_support"}:
+                return "supported"
+        if nli_label == "neutral" and similarity_label == "supported":
+            # Similarity says related, but NLI cannot entail it.
+            return "weak_support"
+
+        return similarity_label
 
     def detect(self, answer: str, evidence_list: list[Any]) -> dict:
         claims = self.extractor.extract_claims(answer)
         claim_results: list[dict] = []
 
         for claim in claims:
-            score, best_index = self.scorer.score_claim(claim, evidence_list)
+            score_info = self.scorer.score_claim_against_evidence(claim, evidence_list)
+            score = float(score_info["score"])
+            best_index = score_info["best_evidence_index"]
+            best_evidence_text = score_info.get("best_evidence") or ""
+            rule_flags = score_info.get("rule_flags", [])
 
-            if score >= self.support_threshold:
-                label = "supported"
-            elif score >= self.warning_threshold:
-                label = "weak_support"
-            else:
-                label = "unsupported"
-
-            best_evidence_text = None
-            if best_index is not None and 0 <= best_index < len(evidence_list):
-                best_item = evidence_list[best_index]
-                if isinstance(best_item, str):
-                    best_evidence_text = best_item
-                elif isinstance(best_item, dict):
-                    best_evidence_text = best_item.get("text")
-                else:
-                    best_evidence_text = str(best_item)
+            similarity_label = self._label_from_similarity(score)
+            nli_result = self.nli_verifier.verify(claim, best_evidence_text)
+            final_label = self._fuse_label(similarity_label, rule_flags, nli_result)
 
             claim_results.append(
                 {
                     "claim": claim,
                     "support_score": round(float(score), 4),
-                    "label": label,
+                    "raw_similarity_score": score_info.get("raw_similarity_score"),
+                    "label": final_label,
+                    "similarity_label": similarity_label,
                     "best_evidence_index": best_index,
                     "best_evidence_text": best_evidence_text,
+                    "rule_flags": rule_flags,
+                    "nli_label": nli_result.get("label"),
+                    "nli_score": nli_result.get("score"),
+                    "nli_available": nli_result.get("available"),
+                    "nli_error": nli_result.get("error"),
                 }
             )
 

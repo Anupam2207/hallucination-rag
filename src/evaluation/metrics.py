@@ -52,8 +52,8 @@ class HallucinationMetrics:
 
     @staticmethod
     def claim_count_reduction(raw_detection: Dict, corrected_detection: Dict) -> int:
-        raw_count = raw_detection.get("claim_count", 0)
-        corrected_count = corrected_detection.get("claim_count", 0)
+        raw_count = detection_result_count(raw_detection)
+        corrected_count = detection_result_count(corrected_detection)
         return raw_count - corrected_count
 
     @staticmethod
@@ -61,6 +61,33 @@ class HallucinationMetrics:
         raw_score = HallucinationMetrics.weighted_support_ratio(raw_detection)
         corrected_score = HallucinationMetrics.weighted_support_ratio(corrected_detection)
         return round(corrected_score - raw_score, 4)
+
+    @staticmethod
+    def correction_status(
+        factual_improvement: float,
+        hallucination_reduction: float,
+    ) -> str:
+        """Return a human-readable correction status.
+
+        The UI should not show strong success when both key metrics are unchanged.
+        True success only means factual support improved or hallucination rate
+        reduced. If one metric improves but the other worsens, call it partial.
+        """
+        eps = 1e-9
+        improved_support = factual_improvement > eps
+        reduced_hallucination = hallucination_reduction > eps
+        worsened_support = factual_improvement < -eps
+        increased_hallucination = hallucination_reduction < -eps
+
+        if (improved_support or reduced_hallucination) and not (
+            worsened_support or increased_hallucination
+        ):
+            return "improved"
+        if improved_support or reduced_hallucination:
+            return "partially_improved"
+        if not worsened_support and not increased_hallucination:
+            return "no_change"
+        return "worsened"
 
     @staticmethod
     def summarize(raw_detection: Dict, corrected_detection: Dict) -> Dict:
@@ -78,19 +105,10 @@ class HallucinationMetrics:
         improvement = round(corrected_weighted - raw_weighted, 4)
         hallucination_reduction = round(raw_hallucination - corrected_hallucination, 4)
         claim_reduction = HallucinationMetrics.claim_count_reduction(raw_detection, corrected_detection)
+        status = HallucinationMetrics.correction_status(improvement, hallucination_reduction)
 
-        # The correction is successful when it improves weighted support, reduces
-        # unsupported claims, or preserves support while producing a more concise
-        # answer with no increase in hallucination rate.
-        correction_success = (
-            improvement > 0
-            or hallucination_reduction > 0
-            or (
-                corrected_hallucination <= raw_hallucination
-                and corrected_weighted >= raw_weighted
-                and claim_reduction >= 0
-            )
-        )
+        # True success only when factual grounding improves or hallucination rate drops.
+        correction_success = status in {"improved", "partially_improved"}
 
         return {
             "raw_support_ratio": raw_support,
@@ -104,6 +122,7 @@ class HallucinationMetrics:
             "hallucination_reduction": hallucination_reduction,
             "claim_count_reduction": claim_reduction,
             "factual_improvement": improvement,
+            "correction_status": status,
             "correction_success": bool(correction_success),
         }
 
@@ -111,6 +130,10 @@ class HallucinationMetrics:
     @staticmethod
     def summary(raw_detection: Dict, corrected_detection: Dict) -> Dict:
         return HallucinationMetrics.summarize(raw_detection, corrected_detection)
+
+
+def detection_result_count(detection_result: Dict) -> int:
+    return int(detection_result.get("claim_count", 0) or 0)
 
 
 def compare_detection_results(raw_detection: Dict, corrected_detection: Dict) -> Dict:

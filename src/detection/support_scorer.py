@@ -46,20 +46,96 @@ class SupportScorer:
             return 0.0
         return 2 * recall * precision / (recall + precision)
 
-    def score_claim(self, claim: str, evidence_list: list[Any]) -> tuple[float, int | None]:
+    @staticmethod
+    def _missing_specific_evidence_flags(claim: str, evidence_texts: list[str]) -> list[str]:
+        """Detect unsupported details that similarity often misses.
+
+        Embedding similarity measures relatedness, not strict entailment. This
+        rule layer catches a small set of recurring unsupported additions found
+        in the Streamlit results and common RAG hallucinations.
+        """
+        claim_lower = claim.lower()
+        evidence_lower = " ".join(evidence_texts).lower()
+        flags: list[str] = []
+
+        phrase_groups = {
+            "fine_tuning_not_in_evidence": [
+                "fine-tun", "fine tun", "finetun", "fine tuned", "fine-tuned",
+            ],
+            "machine_translation_not_in_evidence": [
+                "machine translation", "language translation",
+            ],
+            "sentiment_analysis_not_in_evidence": ["sentiment analysis"],
+            "text_classification_not_in_evidence": ["text classification"],
+            "dialogue_systems_not_in_evidence": [
+                "conversational dialogue", "dialogue system", "dialogue systems",
+            ],
+            "training_data_requirement_not_in_evidence": [
+                "training data requirement",
+                "less training data",
+                "large amounts of training data",
+                "large amount of training data",
+                "requires training data",
+                "require training data",
+            ],
+            "explicit_knowledge_representation_not_in_evidence": [
+                "explicit knowledge representation",
+                "knowledge representation",
+            ],
+            "style_tone_generation_not_in_evidence": ["style and tone", "tone and style"],
+        }
+
+        for flag, phrases in phrase_groups.items():
+            claim_mentions = any(phrase in claim_lower for phrase in phrases)
+            evidence_mentions = any(phrase in evidence_lower for phrase in phrases)
+            if claim_mentions and not evidence_mentions:
+                flags.append(flag)
+
+        return flags
+
+    def _apply_rule_caps(
+        self,
+        claim: str,
+        evidence_texts: list[str],
+        score: float,
+    ) -> tuple[float, list[str]]:
+        flags = self._missing_specific_evidence_flags(claim, evidence_texts)
+        if not flags:
+            return score, flags
+
+        # Cap below the weak-support threshold so unsupported specific details
+        # remain visible in the UI and metrics.
+        return min(score, 0.35), flags
+
+    def _score_claim_internal(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
         if not claim.strip() or not evidence_list:
-            return 0.0, None
+            return {
+                "claim": claim,
+                "score": 0.0,
+                "raw_similarity_score": 0.0,
+                "best_evidence_index": None,
+                "best_evidence": None,
+                "rule_flags": [],
+            }
 
         evidence_texts = [self._extract_text(item) for item in evidence_list]
         evidence_texts = [text for text in evidence_texts if text.strip()]
         if not evidence_texts:
-            return 0.0, None
+            return {
+                "claim": claim,
+                "score": 0.0,
+                "raw_similarity_score": 0.0,
+                "best_evidence_index": None,
+                "best_evidence": None,
+                "rule_flags": [],
+            }
 
         claim_embedding = self.embedder.encode([claim])
         evidence_embeddings = self.embedder.encode(evidence_texts)
         similarities = cosine_similarity(claim_embedding, evidence_embeddings)[0]
 
         best_score = 0.0
+        best_raw_score = 0.0
         best_index: int | None = None
         for index, semantic_score in enumerate(similarities):
             lexical_score = self.lexical_overlap_score(claim, evidence_texts[index])
@@ -70,19 +146,25 @@ class SupportScorer:
 
             if hybrid_score > best_score:
                 best_score = hybrid_score
+                best_raw_score = hybrid_score
                 best_index = index
 
-        return best_score, best_index
+        capped_score, flags = self._apply_rule_caps(claim, evidence_texts, best_score)
+        best_evidence = evidence_texts[best_index] if best_index is not None else None
 
-    def score_claim_against_evidence(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
-        """Backward-compatible richer scoring API used by tests and reports."""
-        score, best_index = self.score_claim(claim, evidence_list)
-        best_evidence = None
-        if best_index is not None and 0 <= best_index < len(evidence_list):
-            best_evidence = self._extract_text(evidence_list[best_index])
         return {
             "claim": claim,
-            "score": round(float(score), 4),
+            "score": round(float(capped_score), 4),
+            "raw_similarity_score": round(float(best_raw_score), 4),
             "best_evidence_index": best_index,
             "best_evidence": best_evidence,
+            "rule_flags": flags,
         }
+
+    def score_claim(self, claim: str, evidence_list: list[Any]) -> tuple[float, int | None]:
+        result = self._score_claim_internal(claim, evidence_list)
+        return float(result["score"]), result["best_evidence_index"]
+
+    def score_claim_against_evidence(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
+        """Richer scoring API used by detector, tests, and reports."""
+        return self._score_claim_internal(claim, evidence_list)

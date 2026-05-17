@@ -1,0 +1,1 @@
+In large language models, hallucination refers to fluent output that is incorrect, unsupported, or fabricated. A model can sound confident even when its claims are not grounded in evidence.

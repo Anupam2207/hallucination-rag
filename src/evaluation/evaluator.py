@@ -37,7 +37,7 @@ class BenchmarkEvaluator:
                 )
                 records.append(
                     {
-                        "query_id": item.get("query_id"),
+                        "query_id": item.get("query_id") or item.get("id"),
                         "query": item["query"],
                         "ground_truth": item.get("ground_truth", ""),
                         "raw_answer": result.get("raw_answer", ""),

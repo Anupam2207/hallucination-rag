@@ -1,0 +1,1 @@
+Sentence embeddings convert sentences or short passages into dense numerical vectors. These vectors make semantic search possible because text with similar meaning tends to have nearby embeddings in vector space.

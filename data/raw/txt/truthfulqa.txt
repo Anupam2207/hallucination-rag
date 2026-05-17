@@ -1,0 +1,1 @@
+TruthfulQA is a benchmark designed to measure whether language models produce truthful answers. It is often used in hallucination-related research and analysis.

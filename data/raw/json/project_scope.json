@@ -1,0 +1,18 @@
+{
+  "project_title": "Hallucination Detection and Correction in Large Language Models using Retrieval-Augmented Generation",
+  "core_modules": [
+    "query input",
+    "base answer generation",
+    "knowledge base preparation",
+    "retrieval",
+    "hallucination detection",
+    "response correction",
+    "evaluation",
+    "streamlit ui"
+  ],
+  "constraints": {
+    "timeline": "1 month",
+    "hardware": "Windows laptop with 8 GB RAM",
+    "strategy": "lightweight local implementation"
+  }
+}

@@ -12,6 +12,16 @@ from src.retrieval.retriever import SemanticRetriever
 
 
 class HallucinationRAGPipeline:
+    """End-to-end pipeline for hallucination detection and correction.
+
+    Runtime order intentionally follows the project objective:
+    1. Generate an initial ungrounded/raw LLM answer.
+    2. Retrieve evidence from the local vector index.
+    3. Detect unsupported claims in the raw answer.
+    4. Correct the answer using the original answer + retrieved evidence.
+    5. Detect support again and compute before/after metrics.
+    """
+
     def __init__(self) -> None:
         self.logger = get_logger('pipeline')
         shared_embedder = EmbeddingModel()
@@ -27,17 +37,19 @@ class HallucinationRAGPipeline:
             raise ValueError('Query must not be empty.')
 
         warnings: List[str] = []
+
+        try:
+            raw_answer = self.generator.generate_answer(query)
+        except OllamaServiceError as exc:
+            raise RuntimeError(str(exc)) from exc
+
         evidence = self.retriever.retrieve(query, top_k=top_k)
         if not evidence:
             warnings.append(
                 'No evidence was retrieved. Build the index or expand the knowledge base for better results.'
             )
 
-        try:
-            raw_answer = self.generator.generate_answer(query)
-            corrected_answer = self.corrector.correct(query, raw_answer, evidence)
-        except OllamaServiceError as exc:
-            raise RuntimeError(str(exc)) from exc
+        corrected_answer = self.corrector.correct(query, raw_answer, evidence)
 
         raw_detection = self.detector.detect(raw_answer, evidence)
         corrected_detection = self.detector.detect(corrected_answer, evidence)

@@ -1,0 +1,1 @@
+Precision measures the fraction of predicted positives that are actually correct. Recall measures the fraction of actual positives that were successfully found. F1 score is the harmonic mean of precision and recall. These metrics are useful when evaluating hallucination detection if claim-level labels are available.

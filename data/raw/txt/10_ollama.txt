@@ -1,0 +1,1 @@
+Ollama is a local runtime for running open-weight language models on personal hardware. It exposes a local API, which makes it practical for small projects that want local inference without building a custom server stack. A small model such as llama3.2:3b is often preferred on lower-memory systems because it is easier to run than larger models.
