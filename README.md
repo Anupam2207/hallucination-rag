@@ -153,3 +153,76 @@ python scripts/test_nli_verifier.py --enable
 ```
 
 If the model is unavailable or cannot be downloaded, the app falls back to similarity + rule-based verification.
+
+## Hybrid retrieval update
+
+This version can use hybrid retrieval when `configs/settings.yaml` contains:
+
+```yaml
+retrieval:
+  mode: "hybrid"
+```
+
+Hybrid retrieval combines:
+
+- dense semantic retrieval from ChromaDB
+- lightweight BM25 sparse retrieval over `data/chunks/chunks.jsonl`
+- Reciprocal Rank Fusion (RRF)
+
+RRF score is computed as:
+
+```text
+score = 1 / (rrf_k + dense_rank) + 1 / (rrf_k + sparse_rank)
+```
+
+Use this diagnostic script after building the vector index:
+
+```bash
+python scripts/test_hybrid_retrieval.py --query "What is retrieval-augmented generation?"
+```
+
+The evidence table now includes optional retrieval fields such as `rrf_score`, `dense_similarity`, `sparse_rank`, and `sparse_score`.
+
+## Bounded batch evaluation
+
+The Streamlit and single-query pipeline remain sequential for stability. Batch evaluation supports conservative bounded processing:
+
+```bash
+python scripts/run_batch_evaluation.py --limit 5 --max-workers 1 --max-llm-workers 1 --max-nli-workers 1
+```
+
+Keep these values low on the Windows laptop with 8 GB RAM and GTX 1050 Ti 4 GB VRAM.
+
+## Retrieval upgrade: hybrid dense + sparse search
+
+The retriever now supports two modes through `configs/settings.yaml`:
+
+```yaml
+retrieval:
+  mode: hybrid   # use "dense" to fall back to Chroma-only retrieval
+  dense_top_k: 8
+  sparse_top_k: 8
+  rrf_k: 60
+```
+
+Hybrid mode keeps the existing Chroma dense retriever and adds a lightweight dependency-free BM25 retriever over `data/chunks/chunks.jsonl`. Results are fused with Reciprocal Rank Fusion (RRF):
+
+```text
+RRF score = 1 / (k + dense_rank) + 1 / (k + sparse_rank)
+```
+
+This improves evidence retrieval for exact acronyms, names, dates, and technical keywords while preserving semantic retrieval quality.
+
+### Test hybrid retrieval
+
+```bash
+python scripts/test_hybrid_retrieval.py --query "What is retrieval-augmented generation?"
+```
+
+### Low-resource batch evaluation
+
+Batch evaluation remains conservative by default to avoid overloading local Ollama or optional NLI models on 8 GB RAM machines:
+
+```bash
+python scripts/run_batch_evaluation.py --limit 5 --max-workers 1 --max-llm-workers 1 --max-nli-workers 1
+```

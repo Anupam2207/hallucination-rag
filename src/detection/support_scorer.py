@@ -67,6 +67,9 @@ class SupportScorer:
             ],
             "sentiment_analysis_not_in_evidence": ["sentiment analysis"],
             "text_classification_not_in_evidence": ["text classification"],
+            "document_classification_not_in_evidence": ["document classification"],
+            "summarization_not_in_evidence": ["text summarization", "summarization"],
+            "content_generation_not_in_evidence": ["content generation"],
             "dialogue_systems_not_in_evidence": [
                 "conversational dialogue", "dialogue system", "dialogue systems",
             ],
@@ -85,11 +88,24 @@ class SupportScorer:
             "style_tone_generation_not_in_evidence": ["style and tone", "tone and style"],
         }
 
+        task_flags = {
+            "machine_translation_not_in_evidence",
+            "sentiment_analysis_not_in_evidence",
+            "text_classification_not_in_evidence",
+            "document_classification_not_in_evidence",
+            "summarization_not_in_evidence",
+            "content_generation_not_in_evidence",
+            "dialogue_systems_not_in_evidence",
+        }
+
         for flag, phrases in phrase_groups.items():
             claim_mentions = any(phrase in claim_lower for phrase in phrases)
             evidence_mentions = any(phrase in evidence_lower for phrase in phrases)
             if claim_mentions and not evidence_mentions:
                 flags.append(flag)
+
+        if any(flag in task_flags for flag in flags):
+            flags.append("unsupported_task_example_not_in_evidence")
 
         return flags
 

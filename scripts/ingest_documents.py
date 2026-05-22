@@ -76,6 +76,10 @@ def main() -> None:
                 'file_type': chunk['file_type'],
                 'source_rel': chunk['source_rel'],
                 'char_length': chunk['char_length'],
+                'sentence_count': chunk.get('sentence_count'),
+                'start_sentence_index': chunk.get('start_sentence_index'),
+                'end_sentence_index': chunk.get('end_sentence_index'),
+                'parent_doc_id': chunk.get('parent_doc_id'),
             }
             for chunk in chunks
         ],

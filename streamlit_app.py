@@ -64,6 +64,8 @@ def main() -> None:
     for warning in result.get("warnings", []):
         st.warning(warning)
 
+    st.caption(f"Retrieval mode: {result.get('retrieval_mode', 'unknown')}")
+
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Raw answer")

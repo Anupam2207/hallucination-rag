@@ -1,38 +1,44 @@
 project:
-  name: "Hallucination Detection and Correction in LLMs using RAG"
-  version: "0.2.0"
+  name: Hallucination Detection and Correction in LLMs using RAG
+  version: 0.2.0
   random_seed: 42
-
 paths:
-  raw_data_dir: "data/raw"
-  processed_data_dir: "data/processed"
-  chunks_dir: "data/chunks"
-  chroma_dir: "db/chroma"
-  outputs_dir: "outputs"
-  runs_dir: "outputs/runs"
-  predictions_dir: "outputs/predictions"
-  reports_dir: "outputs/reports"
-  figures_dir: "outputs/figures"
-
+  raw_data_dir: data/raw
+  processed_data_dir: data/processed
+  chunks_dir: data/chunks
+  chroma_dir: db/chroma
+  outputs_dir: outputs
+  runs_dir: outputs/runs
+  predictions_dir: outputs/predictions
+  reports_dir: outputs/reports
+  figures_dir: outputs/figures
 retrieval:
-  collection_name: "rag_knowledge"
+  collection_name: rag_knowledge
+  mode: hybrid
   chunk_size: 500
   chunk_overlap: 100
   top_k: 4
   claim_top_k: 3
-
+  dense_top_k: 8
+  sparse_top_k: 8
+  rrf_k: 60
+  bm25_k1: 1.5
+  bm25_b: 0.75
 detection:
   similarity_support_threshold: 0.55
-  similarity_warning_threshold: 0.40
+  similarity_warning_threshold: 0.4
   enable_nli: false
-  nli_entailment_threshold: 0.60
-  nli_contradiction_threshold: 0.60
+  nli_entailment_threshold: 0.6
+  nli_contradiction_threshold: 0.6
   nli_neutral_threshold: 0.65
-
 generation:
   max_context_chunks: 4
   temperature: 0.2
   max_tokens: 512
-
 ui:
   show_debug_info: true
+runtime:
+  hardware_profile: low_resource
+  max_batch_workers: 1
+  max_llm_workers: 1
+  max_nli_workers: 1

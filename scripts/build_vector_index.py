@@ -38,6 +38,10 @@ def main() -> None:
             'source_rel': record['source_rel'],
             'file_name': record['file_name'],
             'file_type': record['file_type'],
+            'parent_doc_id': record.get('parent_doc_id', record.get('doc_id')),
+            'sentence_count': record.get('sentence_count'),
+            'start_sentence_index': record.get('start_sentence_index'),
+            'end_sentence_index': record.get('end_sentence_index'),
         }
         for record in chunk_records
     ]

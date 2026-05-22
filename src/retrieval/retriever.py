@@ -6,6 +6,12 @@ from src.retrieval.vector_store import ChromaVectorStore
 
 
 class SemanticRetriever:
+    """Dense semantic retriever backed by ChromaDB.
+
+    This class remains available for backward compatibility and for cases where
+    configs/settings.yaml sets retrieval.mode = "dense".
+    """
+
     def __init__(
         self,
         vector_store: ChromaVectorStore | None = None,
@@ -15,7 +21,7 @@ class SemanticRetriever:
         configs = load_all_configs()
         self.vector_store = vector_store or ChromaVectorStore()
         self.embedder = embedder or EmbeddingModel()
-        self.top_k = top_k or configs["settings"]["retrieval"]["top_k"]
+        self.top_k = int(top_k or configs["settings"]["retrieval"]["top_k"])
 
     def is_ready(self) -> bool:
         return self.vector_store.count() > 0
@@ -35,7 +41,10 @@ class SemanticRetriever:
         ids = raw_results.get("ids", [[]])[0] if raw_results.get("ids") else [None] * len(documents)
 
         normalized_results: List[Dict[str, Any]] = []
-        for doc_id, document, metadata, distance in zip(ids, documents, metadatas, distances):
+        for rank, (doc_id, document, metadata, distance) in enumerate(
+            zip(ids, documents, metadatas, distances),
+            start=1,
+        ):
             distance_value = float(distance) if distance is not None else None
             similarity = None if distance_value is None else max(0.0, 1.0 - distance_value)
             normalized_results.append(
@@ -45,6 +54,9 @@ class SemanticRetriever:
                     "metadata": metadata or {},
                     "distance": distance_value,
                     "similarity": similarity,
+                    "dense_rank": rank,
+                    "dense_similarity": similarity,
+                    "retrieval_method": "dense",
                 }
             )
         return normalized_results

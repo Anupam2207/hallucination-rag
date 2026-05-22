@@ -1,5 +1,6 @@
 from typing import Any, Dict, List
 
+from src.config import get_config_value
 from src.detection.detector import HallucinationDetector
 from src.detection.support_scorer import SupportScorer
 from src.evaluation.metrics import HallucinationMetrics
@@ -8,6 +9,7 @@ from src.generation.correction import AnswerCorrector
 from src.generation.ollama_client import OllamaClient, OllamaServiceError
 from src.logger import get_logger
 from src.retrieval.embedder import EmbeddingModel
+from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.retriever import SemanticRetriever
 
 
@@ -16,20 +18,27 @@ class HallucinationRAGPipeline:
 
     Runtime order intentionally follows the project objective:
     1. Generate an initial ungrounded/raw LLM answer.
-    2. Retrieve evidence from the local vector index.
+    2. Retrieve evidence from the local index.
     3. Detect unsupported claims in the raw answer.
     4. Correct the answer using the original answer + retrieved evidence.
     5. Detect support again and compute before/after metrics.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, retrieval_mode: str | None = None) -> None:
         self.logger = get_logger('pipeline')
         shared_embedder = EmbeddingModel()
         shared_ollama_client = OllamaClient()
-        self.retriever = SemanticRetriever(embedder=shared_embedder)
+
+        mode = (retrieval_mode or get_config_value('settings', 'retrieval', 'mode', default='dense')).lower()
+        if mode == 'hybrid':
+            self.retriever = HybridRetriever(embedder=shared_embedder)
+        else:
+            self.retriever = SemanticRetriever(embedder=shared_embedder)
+
         self.generator = BaseAnswerGenerator(client=shared_ollama_client)
         self.corrector = AnswerCorrector(client=shared_ollama_client)
         self.detector = HallucinationDetector(support_scorer=SupportScorer(embedder=shared_embedder))
+        self.retrieval_mode = mode
 
     def run(self, query: str, top_k: int | None = None) -> Dict[str, Any]:
         query = query.strip()
@@ -57,6 +66,7 @@ class HallucinationRAGPipeline:
 
         return {
             'query': query,
+            'retrieval_mode': self.retrieval_mode,
             'warnings': warnings,
             'evidence': evidence,
             'raw_answer': raw_answer,

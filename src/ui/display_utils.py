@@ -33,9 +33,22 @@ def evidence_to_dataframe(evidence_list: List[Dict[str, Any]]) -> pd.DataFrame:
         rows.append(
             {
                 "rank": index,
+                "method": item.get("retrieval_method", "dense"),
                 "source": metadata.get("source_rel") or metadata.get("file_name") or item.get("chunk_id", "unknown"),
-                "similarity": round(float(item.get("similarity") or 0.0), 3),
+                "rrf_score": _round_optional(item.get("rrf_score")),
+                "dense_similarity": _round_optional(item.get("dense_similarity", item.get("similarity"))),
+                "sparse_rank": item.get("sparse_rank"),
+                "sparse_score": _round_optional(item.get("sparse_score")),
                 "text": item.get("text", ""),
             }
         )
     return pd.DataFrame(rows)
+
+
+def _round_optional(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return round(float(value), 3)
+    except (TypeError, ValueError):
+        return None
