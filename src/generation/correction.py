@@ -104,12 +104,13 @@ Rewrite the original answer so it is grounded only in the retrieved evidence.
 
 Rules:
 - Return only the corrected answer.
-- Do not include notes, explanations, citations, references, or meta-comments.
+- Do not include notes, explanations, or meta-comments.
 - Do not say "the original answer has been rewritten".
-- Do not mention evidence numbers like [1], [2], or [3].
+- Add citation markers such as [Evidence-1] or [Evidence-2] after claims that use evidence.
+- Preserve supported claims and replace unsupported claims using retrieved evidence.
 - Remove claims that are not directly supported by the retrieved evidence.
 - Do not add new claims beyond the retrieved evidence.
-- Keep the answer concise.
+- Keep the answer concise, natural, and grammatically correct.
 - For standard RAG, say that the generator uses retrieved passages as context.
 - Do not say the generator is fine-tuned unless the retrieved evidence explicitly says fine-tuning.
 - Do not claim RAG needs less training data unless the retrieved evidence explicitly says so.

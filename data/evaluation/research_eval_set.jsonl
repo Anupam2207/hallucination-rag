@@ -1,0 +1,2 @@
+{"query":"RAG was introduced in 2021.","expected_unsupported_claims":["RAG was introduced in 2021."],"expected_supported_claims":[],"gold_hallucinated_spans":[{"text":"2021","start":22,"end":26}]}
+{"query":"What is retrieval-augmented generation?","expected_unsupported_claims":[],"expected_supported_claims":["RAG combines retrieval with generation."],"gold_hallucinated_spans":[]}

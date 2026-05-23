@@ -24,6 +24,12 @@ retrieval:
   rrf_k: 60
   bm25_k1: 1.5
   bm25_b: 0.75
+  answerability_threshold: 0.45
+  enable_reranker: false
+  reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  reranker_device: "cpu"
+  rerank_top_n: 20
+  final_top_k: 5
 detection:
   similarity_support_threshold: 0.55
   similarity_warning_threshold: 0.4
@@ -42,3 +48,11 @@ runtime:
   max_batch_workers: 1
   max_llm_workers: 1
   max_nli_workers: 1
+
+verification:
+  enable_nli: false
+  nli_model: "cross-encoder/nli-deberta-v3-small"
+  nli_device: "cpu"
+  nli_max_evidence_chars: 900
+  nli_min_similarity_to_run: 0.35
+  nli_cache_enabled: true

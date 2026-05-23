@@ -3,6 +3,7 @@ from typing import Any
 
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.detection.factual_consistency import run_factual_consistency_checks
 from src.retrieval.embedder import EmbeddingModel
 
 
@@ -12,8 +13,6 @@ class SupportScorer:
 
     @staticmethod
     def _extract_text(item: Any) -> str:
-        # Normalize evidence input to plain text so scoring works with both
-        # text strings and structured evidence items.
         if isinstance(item, str):
             return item
         if isinstance(item, dict):
@@ -27,7 +26,7 @@ class SupportScorer:
             "and", "or", "of", "to", "in", "on", "for", "with", "by", "as", "at",
             "from", "that", "this", "it", "its", "into", "than", "then", "while",
             "using", "use", "used", "uses", "both", "these", "those", "can", "could",
-            "would", "should", "typically",
+            "would", "should", "typically", "several", "various", "including",
         }
         words = re.findall(r"[a-zA-Z][a-zA-Z\-]{2,}", text.lower())
         return {word for word in words if word not in stopwords}
@@ -35,17 +34,11 @@ class SupportScorer:
     def lexical_overlap_score(self, claim: str, evidence: str) -> float:
         claim_tokens = self._tokens(claim)
         evidence_tokens = self._tokens(evidence)
-        # Use token overlap as a secondary signal to catch claims with matching
-        # factual phrases that embeddings may underweight.
         if not claim_tokens or not evidence_tokens:
             return 0.0
-
         overlap = claim_tokens.intersection(evidence_tokens)
         if len(overlap) < 3:
-            # Require a minimal number of overlapping tokens to avoid false
-            # positive lexical matches.
             return 0.0
-
         recall = len(overlap) / len(claim_tokens)
         precision = len(overlap) / len(evidence_tokens)
         if recall + precision == 0:
@@ -54,19 +47,11 @@ class SupportScorer:
 
     @staticmethod
     def _missing_specific_evidence_flags(claim: str, evidence_texts: list[str]) -> list[str]:
-        """Detect unsupported details that similarity often misses.
-
-        Embedding similarity measures relatedness, not strict entailment. This
-        rule layer catches a small set of recurring unsupported additions found
-        in the Streamlit results and common RAG hallucinations.
-        """
         claim_lower = claim.lower()
         evidence_lower = " ".join(evidence_texts).lower()
         flags: list[str] = []
 
         phrase_groups = {
-            # Candidate phrases used to detect specific claim details that are
-            # unsupported by the retrieved evidence.
             "fine_tuning_not_in_evidence": [
                 "fine-tun", "fine tun", "finetun", "fine tuned", "fine-tuned",
             ],
@@ -82,18 +67,23 @@ class SupportScorer:
                 "conversational dialogue", "dialogue system", "dialogue systems",
             ],
             "training_data_requirement_not_in_evidence": [
-                "training data requirement",
-                "less training data",
-                "large amounts of training data",
-                "large amount of training data",
-                "requires training data",
-                "require training data",
+                "training data requirement", "less training data", "reduced training data",
+                "smaller amounts of labeled data", "large amounts of training data",
+                "large amount of training data", "requires training data", "require training data",
+                "labeled data",
             ],
             "explicit_knowledge_representation_not_in_evidence": [
-                "explicit knowledge representation",
-                "knowledge representation",
+                "explicit knowledge representation", "knowledge representation",
             ],
             "style_tone_generation_not_in_evidence": ["style and tone", "tone and style"],
+            "performance_comparison_not_in_evidence": [
+                "better than", "outperform", "improved performance", "higher accuracy than",
+                "more efficient than", "perform better than", "superior to", "higher performance",
+            ],
+            "interpretability_not_in_evidence": [
+                "interpretability", "interpretable", "explainability", "explainable",
+                "transparent", "transparency", "clear understanding", "traceability",
+            ],
         }
 
         task_flags = {
@@ -115,23 +105,29 @@ class SupportScorer:
         if any(flag in task_flags for flag in flags):
             flags.append("unsupported_task_example_not_in_evidence")
 
-        return flags
+        return list(dict.fromkeys(flags))
 
     def _apply_rule_caps(
         self,
         claim: str,
-        evidence_texts: list[str],
+        all_evidence_texts: list[str],
+        best_evidence: str,
         score: float,
-    ) -> tuple[float, list[str]]:
-        flags = self._missing_specific_evidence_flags(claim, evidence_texts)
-        # If the claim contains unsupported specific details, reduce the score
-        # so the detector can label it as weak or unsupported.
-        if not flags:
-            return score, flags
+    ) -> tuple[float, list[str], dict[str, Any]]:
+        flags = self._missing_specific_evidence_flags(claim, all_evidence_texts)
+        factual_result = run_factual_consistency_checks(claim, best_evidence or "")
+        factual_flags = list(factual_result.get("flags", []))
+        flags.extend(factual_flags)
+        flags = list(dict.fromkeys(flags))
 
-        # Cap below the weak-support threshold so unsupported specific details
-        # remain visible in the UI and metrics.
-        return min(score, 0.35), flags
+        if not flags:
+            return score, flags, factual_result
+
+        # Numeric/entity contradictions are stronger than unsupported examples.
+        if any(flag in flags for flag in ["numeric_mismatch_with_evidence", "entity_mismatch_with_evidence"]):
+            return min(score, 0.35), flags, factual_result
+
+        return min(score, 0.35), flags, factual_result
 
     def _score_claim_internal(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
         if not claim.strip() or not evidence_list:
@@ -142,6 +138,7 @@ class SupportScorer:
                 "best_evidence_index": None,
                 "best_evidence": None,
                 "rule_flags": [],
+                "factual_consistency": {"flags": [], "details": {}},
             }
 
         evidence_texts = [self._extract_text(item) for item in evidence_list]
@@ -154,6 +151,7 @@ class SupportScorer:
                 "best_evidence_index": None,
                 "best_evidence": None,
                 "rule_flags": [],
+                "factual_consistency": {"flags": [], "details": {}},
             }
 
         claim_embedding = self.embedder.encode([claim])
@@ -169,15 +167,18 @@ class SupportScorer:
                 hybrid_score = max(float(semantic_score), float(lexical_score))
             else:
                 hybrid_score = float(semantic_score)
-
             if hybrid_score > best_score:
                 best_score = hybrid_score
                 best_raw_score = hybrid_score
                 best_index = index
 
-        capped_score, flags = self._apply_rule_caps(claim, evidence_texts, best_score)
-        best_evidence = evidence_texts[best_index] if best_index is not None else None
-        # Return the best match and any rule-based flags used for score adjustment.
+        best_evidence = evidence_texts[best_index] if best_index is not None else ""
+        capped_score, flags, factual_result = self._apply_rule_caps(
+            claim,
+            evidence_texts,
+            best_evidence,
+            best_score,
+        )
 
         return {
             "claim": claim,
@@ -186,6 +187,7 @@ class SupportScorer:
             "best_evidence_index": best_index,
             "best_evidence": best_evidence,
             "rule_flags": flags,
+            "factual_consistency": factual_result,
         }
 
     def score_claim(self, claim: str, evidence_list: list[Any]) -> tuple[float, int | None]:
@@ -193,5 +195,4 @@ class SupportScorer:
         return float(result["score"]), result["best_evidence_index"]
 
     def score_claim_against_evidence(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
-        """Richer scoring API used by detector, tests, and reports."""
         return self._score_claim_internal(claim, evidence_list)

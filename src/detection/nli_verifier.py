@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 import numpy as np
 
@@ -19,31 +19,54 @@ class NLIResult:
 
 
 class NLIVerifier:
-    """Optional lightweight NLI verifier for claim-evidence entailment.
+    """Optional CPU-friendly NLI verifier.
 
-    This module is deliberately defensive. If the Hugging Face model cannot be
-    loaded on a low-resource laptop, the app falls back to the similarity/rule
-    detector instead of crashing.
+    Evidence is the premise and the generated claim is the hypothesis. The class
+    is intentionally defensive: if the model cannot be loaded, the detector falls
+    back to similarity + rule checks instead of crashing.
     """
 
-    def __init__(self, enabled: bool | None = None, model_name: str | None = None) -> None:
+    def __init__(
+        self,
+        enabled: bool | None = None,
+        model_name: str | None = None,
+        device: str | None = None,
+        max_evidence_chars: int | None = None,
+        cache_enabled: bool | None = None,
+    ) -> None:
         self.enabled = bool(
-            get_config_value("settings", "detection", "enable_nli", default=False)
+            get_config_value("settings", "verification", "enable_nli", default=False)
             if enabled is None
             else enabled
         )
+        # Backward compatibility with older config layout.
         self.model_name = model_name or str(
             get_config_value(
-                "models",
-                "verification",
-                "nli_model_name",
-                default="cross-encoder/nli-deberta-v3-small",
+                "settings", "verification", "nli_model",
+                default=get_config_value(
+                    "models", "verification", "nli_model_name",
+                    default="cross-encoder/nli-deberta-v3-small",
+                ),
             )
+        )
+        self.device = device or str(
+            get_config_value("settings", "verification", "nli_device", default="cpu")
+        )
+        self.max_evidence_chars = int(
+            max_evidence_chars
+            if max_evidence_chars is not None
+            else get_config_value("settings", "verification", "nli_max_evidence_chars", default=900)
+        )
+        self.cache_enabled = bool(
+            get_config_value("settings", "verification", "nli_cache_enabled", default=True)
+            if cache_enabled is None
+            else cache_enabled
         )
         self.model = None
         self.available = False
         self.error: str | None = None
         self.labels: list[str] = ["contradiction", "entailment", "neutral"]
+        self._cache: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
         if self.enabled:
             self._load_model()
@@ -52,13 +75,13 @@ class NLIVerifier:
         try:
             from sentence_transformers import CrossEncoder
 
-            self.model = CrossEncoder(self.model_name)
-            id2label = getattr(getattr(self.model, "model", None), "config", None)
-            id2label = getattr(id2label, "id2label", None)
+            self.model = CrossEncoder(self.model_name, device=self.device)
+            config = getattr(getattr(self.model, "model", None), "config", None)
+            id2label = getattr(config, "id2label", None)
             if isinstance(id2label, dict) and id2label:
                 self.labels = [str(id2label[i]).lower() for i in sorted(id2label)]
             self.available = True
-        except Exception as exc:  # pragma: no cover - depends on local model cache/network
+        except Exception as exc:  # pragma: no cover - model/cache/network dependent
             self.model = None
             self.available = False
             self.error = str(exc)
@@ -73,84 +96,55 @@ class NLIVerifier:
             return np.zeros_like(values)
         return exp_values / total
 
+    @staticmethod
+    def _normalize_label(label: str) -> str:
+        label_lower = label.lower()
+        if "contrad" in label_lower:
+            return "contradiction"
+        if "entail" in label_lower:
+            return "entailment"
+        if "neutral" in label_lower:
+            return "neutral"
+        return label_lower
+
     def verify(self, claim: str, evidence: str) -> Dict[str, Any]:
         if not self.enabled:
-            return NLIResult(
-                enabled=False,
-                available=False,
-                label="not_run",
-                score=None,
-                scores={},
-                error=None,
-            ).__dict__
-
+            return NLIResult(False, False, "not_run", None, {}, None).__dict__
         if not self.available or self.model is None:
-            return NLIResult(
-                enabled=True,
-                available=False,
-                label="unavailable",
-                score=None,
-                scores={},
-                error=self.error or "NLI model is unavailable",
-            ).__dict__
-
+            return NLIResult(True, False, "unavailable", None, {}, self.error or "NLI model is unavailable").__dict__
         if not claim.strip() or not evidence.strip():
-            return NLIResult(
-                enabled=True,
-                available=True,
-                label="not_enough_input",
-                score=None,
-                scores={},
-                error=None,
-            ).__dict__
+            return NLIResult(True, True, "not_enough_input", None, {}, None).__dict__
+
+        evidence = evidence.strip()[: self.max_evidence_chars]
+        claim = claim.strip()
+        cache_key = (evidence, claim)
+        if self.cache_enabled and cache_key in self._cache:
+            return dict(self._cache[cache_key])
 
         try:
             raw_scores = self.model.predict([(evidence, claim)], apply_softmax=False)
             raw_array = np.asarray(raw_scores)[0]
             if raw_array.ndim == 0:
-                # Defensive fallback for unexpected single-score models.
                 score = float(raw_array)
-                return NLIResult(
-                    enabled=True,
-                    available=True,
-                    label="entailment" if score >= 0.5 else "neutral",
-                    score=round(score, 4),
-                    scores={"entailment": round(score, 4)},
-                    error=None,
+                result = NLIResult(True, True, "entailment" if score >= 0.5 else "neutral", round(score, 4), {"entailment": round(score, 4)}, None).__dict__
+            else:
+                probs = self._softmax(raw_array)
+                labels = self.labels[: len(probs)]
+                if len(labels) != len(probs):
+                    labels = [f"label_{i}" for i in range(len(probs))]
+                normalized_labels = [self._normalize_label(label) for label in labels]
+                score_map = {label: round(float(prob), 4) for label, prob in zip(normalized_labels, probs)}
+                best_index = int(np.argmax(probs))
+                result = NLIResult(
+                    True,
+                    True,
+                    normalized_labels[best_index],
+                    round(float(probs[best_index]), 4),
+                    score_map,
+                    None,
                 ).__dict__
-
-            probs = self._softmax(raw_array)
-            labels = self.labels[: len(probs)]
-            if len(labels) != len(probs):
-                labels = [f"label_{i}" for i in range(len(probs))]
-            score_map = {label: round(float(prob), 4) for label, prob in zip(labels, probs)}
-            best_index = int(np.argmax(probs))
-            label = labels[best_index]
-            score = round(float(probs[best_index]), 4)
-
-            # Normalize common HF label variants.
-            label_lower = label.lower()
-            if "contrad" in label_lower:
-                label = "contradiction"
-            elif "entail" in label_lower:
-                label = "entailment"
-            elif "neutral" in label_lower:
-                label = "neutral"
-
-            return NLIResult(
-                enabled=True,
-                available=True,
-                label=label,
-                score=score,
-                scores=score_map,
-                error=None,
-            ).__dict__
+            if self.cache_enabled:
+                self._cache[cache_key] = dict(result)
+            return result
         except Exception as exc:  # pragma: no cover - environment/model dependent
-            return NLIResult(
-                enabled=True,
-                available=False,
-                label="unavailable",
-                score=None,
-                scores={},
-                error=str(exc),
-            ).__dict__
+            return NLIResult(True, False, "error", None, {}, str(exc)).__dict__

@@ -226,3 +226,76 @@ Batch evaluation remains conservative by default to avoid overloading local Olla
 ```bash
 python scripts/run_batch_evaluation.py --limit 5 --max-workers 1 --max-llm-workers 1 --max-nli-workers 1
 ```
+
+## Research-grade factual verification extensions
+
+This version adds a REFIND-inspired verification layer while preserving the original lightweight RAG pipeline.
+
+### Factual consistency checks
+
+The detector now compares factual values in each claim against the best retrieved evidence. It flags:
+
+- `numeric_mismatch_with_evidence` for conflicting years, dates, or numbers
+- `entity_mismatch_with_evidence` for simple same-relation entity conflicts
+
+Example:
+
+```text
+Claim: RAG was introduced in 2021.
+Evidence: RAG was introduced in 2020.
+Output: unsupported, highlighted span [2021]
+```
+
+Run:
+
+```bash
+python scripts/test_factual_consistency.py
+python scripts/test_span_highlighter.py
+```
+
+### Optional NLI verification
+
+NLI is implemented as an optional CPU-first layer. It treats retrieved evidence as the premise and the generated claim as the hypothesis.
+
+Config in `configs/settings.yaml`:
+
+```yaml
+verification:
+  enable_nli: false
+  nli_model: "cross-encoder/nli-deberta-v3-small"
+  nli_device: "cpu"
+  nli_max_evidence_chars: 900
+  nli_cache_enabled: true
+```
+
+For live demo on low-resource hardware, keep NLI disabled. For research evaluation, enable it and run:
+
+```bash
+python scripts/test_nli_verifier.py --enable
+```
+
+### REFIND-inspired span highlighting
+
+Exact REFIND CSR is not implemented because Ollama does not expose reliable token-level log probabilities. Instead, the system highlights suspicious factual spans triggered by retrieved-evidence checks, such as mismatched years, unsupported task examples, and unsupported fine-tuning claims.
+
+### Research evaluation
+
+A lightweight research evaluation script is provided:
+
+```bash
+python scripts/run_research_evaluation.py --limit 5
+```
+
+Outputs:
+
+```text
+results/research_eval_results.csv
+results/research_eval_summary.json
+```
+
+Recommended hardware settings:
+
+- NLI disabled for Streamlit demos
+- NLI enabled only for selected evaluation runs
+- CPU device for NLI/reranker
+- max workers = 1 on 8 GB RAM machines

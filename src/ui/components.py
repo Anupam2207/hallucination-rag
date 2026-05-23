@@ -8,6 +8,13 @@ def render_evidence(evidence_list: list[dict]) -> None:
         st.warning("No evidence was retrieved from the vector database.")
         return
     st.dataframe(evidence_to_dataframe(evidence_list), use_container_width=True)
+    with st.expander("Full retrieved evidence"):
+        for index, item in enumerate(evidence_list, start=1):
+            evidence_id = item.get("evidence_id") or f"Evidence-{index}"
+            source = (item.get("metadata") or {}).get("source_rel") or item.get("chunk_id", "unknown")
+            st.markdown(f"**{evidence_id} — {source}**")
+            st.write(item.get("text", ""))
+            st.divider()
 
 
 def render_claims(detection_result: dict, title: str) -> None:
@@ -19,9 +26,9 @@ def render_claims(detection_result: dict, title: str) -> None:
 
     st.dataframe(claims_to_dataframe(claims, compact=True), use_container_width=True)
 
-    with st.expander(f"Detailed evidence/NLI view for {title}"):
+    with st.expander(f"Detailed verification view for {title}"):
         for index, item in enumerate(claims, start=1):
-            st.markdown(f"**Claim {index}:** {item.get('claim', '')}")
+            st.markdown(f"**Claim {index}:** {item.get('highlighted_claim') or item.get('claim', '')}")
             st.write(
                 {
                     "label": item.get("label"),
@@ -31,6 +38,7 @@ def render_claims(detection_result: dict, title: str) -> None:
                     "nli_label": item.get("nli_label"),
                     "nli_score": item.get("nli_score"),
                     "nli_available": item.get("nli_available"),
+                    "hallucinated_spans": item.get("hallucinated_spans", []),
                 }
             )
             evidence_text = item.get("best_evidence_text")

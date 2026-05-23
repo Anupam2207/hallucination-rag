@@ -10,42 +10,26 @@ from src.detection.nli_verifier import NLIVerifier
 
 
 def main() -> None:
-    parser = ArgumentParser(description="Smoke-test the optional NLI verifier.")
-    parser.add_argument(
-        "--enable",
-        action="store_true",
-        help="Load the configured NLI model. This may download the model on first run.",
-    )
+    parser = ArgumentParser(description="Smoke-test optional NLI verification.")
+    parser.add_argument("--enable", action="store_true", help="Load the real NLI model. May download on first use.")
     args = parser.parse_args()
 
-    evidence = (
-        "Retrieval-Augmented Generation combines information retrieval with language generation. "
-        "A retriever fetches relevant passages from a knowledge base, and the generator uses "
-        "those passages as context while answering the user."
-    )
-    supported_claim = "RAG uses retrieved passages as context while generating an answer."
-    unsupported_claim = "RAG fine-tunes a generator model on retrieved passages for each query."
-
     verifier = NLIVerifier(enabled=args.enable)
-
     print(f"NLI enabled: {verifier.enabled}")
     if not args.enable:
         print("Model loading skipped. Run with --enable to test the real NLI model.")
 
-    for name, claim in [
-        ("supported", supported_claim),
-        ("unsupported_fine_tuning", unsupported_claim),
-    ]:
+    examples = [
+        ("entailment", "RAG was introduced in 2020.", "RAG was introduced in 2020."),
+        ("contradiction", "RAG was introduced in 2020.", "RAG was introduced in 2021."),
+        ("neutral", "RAG combines retrieval with generation.", "Formula 1 cars use hybrid power units."),
+    ]
+    for expected, evidence, claim in examples:
         result = verifier.verify(claim, evidence)
-        print("\nCase:", name)
+        print("\nEvidence:", evidence)
         print("Claim:", claim)
-        print("Label:", result.get("label"))
-        print("Score:", result.get("score"))
-        print("Available:", result.get("available"))
-        if result.get("error"):
-            print("Error:", result.get("error"))
-        if result.get("scores"):
-            print("Scores:", result.get("scores"))
+        print("Expected:", expected)
+        print("Result:", result)
 
 
 if __name__ == "__main__":

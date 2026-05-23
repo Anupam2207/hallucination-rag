@@ -9,7 +9,9 @@ def deduplicate_evidence(evidence_list: Iterable[Dict[str, Any]]) -> List[Dict[s
         if not text or text in seen_texts:
             continue
         seen_texts.add(text)
-        deduped.append(item)
+        copied = dict(item)
+        copied.setdefault("evidence_id", f"Evidence-{len(deduped) + 1}")
+        deduped.append(copied)
     return deduped
 
 
@@ -27,8 +29,9 @@ def format_evidence_block(
             or metadata.get("file_name")
             or item.get("chunk_id", "unknown")
         )
+        evidence_id = item.get("evidence_id") or f"Evidence-{index + 1}"
         text = item.get("text", "").strip()
         if not text:
             continue
-        formatted.append(f"[{index + 1}] Source: {source}\n{text}")
+        formatted.append(f"[{evidence_id}] Source: {source}\n{text}")
     return "\n\n".join(formatted)

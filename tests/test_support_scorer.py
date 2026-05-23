@@ -52,3 +52,33 @@ def test_unsupported_task_examples_get_rule_flag() -> None:
     )
     assert 'unsupported_task_example_not_in_evidence' in result['rule_flags']
     assert result['score'] <= 0.35
+
+
+def test_numeric_mismatch_caps_score() -> None:
+    scorer = SupportScorer(embedder=FakeEmbedder())
+    result = scorer.score_claim_against_evidence(
+        'RAG was introduced in 2021.',
+        [{'text': 'RAG was introduced in 2020.'}],
+    )
+    assert 'numeric_mismatch_with_evidence' in result['rule_flags']
+    assert result['score'] <= 0.35
+
+
+def test_performance_comparison_claim_gets_rule_flag() -> None:
+    scorer = SupportScorer(embedder=FakeEmbedder())
+    result = scorer.score_claim_against_evidence(
+        'RAG models can perform better than traditional generative models.',
+        [{'text': 'RAG combines retrieval with generation and uses retrieved evidence.'}],
+    )
+    assert 'performance_comparison_not_in_evidence' in result['rule_flags']
+    assert result['score'] <= 0.35
+
+
+def test_interpretability_claim_gets_rule_flag() -> None:
+    scorer = SupportScorer(embedder=FakeEmbedder())
+    result = scorer.score_claim_against_evidence(
+        'The retrieval step provides a clear understanding of what information is used.',
+        [{'text': 'RAG retrieves evidence and uses it as context for generation.'}],
+    )
+    assert 'interpretability_not_in_evidence' in result['rule_flags']
+    assert result['score'] <= 0.35
