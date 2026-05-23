@@ -12,6 +12,8 @@ class SupportScorer:
 
     @staticmethod
     def _extract_text(item: Any) -> str:
+        # Normalize evidence input to plain text so scoring works with both
+        # text strings and structured evidence items.
         if isinstance(item, str):
             return item
         if isinstance(item, dict):
@@ -33,11 +35,15 @@ class SupportScorer:
     def lexical_overlap_score(self, claim: str, evidence: str) -> float:
         claim_tokens = self._tokens(claim)
         evidence_tokens = self._tokens(evidence)
+        # Use token overlap as a secondary signal to catch claims with matching
+        # factual phrases that embeddings may underweight.
         if not claim_tokens or not evidence_tokens:
             return 0.0
 
         overlap = claim_tokens.intersection(evidence_tokens)
         if len(overlap) < 3:
+            # Require a minimal number of overlapping tokens to avoid false
+            # positive lexical matches.
             return 0.0
 
         recall = len(overlap) / len(claim_tokens)
@@ -59,6 +65,8 @@ class SupportScorer:
         flags: list[str] = []
 
         phrase_groups = {
+            # Candidate phrases used to detect specific claim details that are
+            # unsupported by the retrieved evidence.
             "fine_tuning_not_in_evidence": [
                 "fine-tun", "fine tun", "finetun", "fine tuned", "fine-tuned",
             ],
@@ -116,6 +124,8 @@ class SupportScorer:
         score: float,
     ) -> tuple[float, list[str]]:
         flags = self._missing_specific_evidence_flags(claim, evidence_texts)
+        # If the claim contains unsupported specific details, reduce the score
+        # so the detector can label it as weak or unsupported.
         if not flags:
             return score, flags
 
@@ -167,6 +177,7 @@ class SupportScorer:
 
         capped_score, flags = self._apply_rule_caps(claim, evidence_texts, best_score)
         best_evidence = evidence_texts[best_index] if best_index is not None else None
+        # Return the best match and any rule-based flags used for score adjustment.
 
         return {
             "claim": claim,

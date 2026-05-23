@@ -30,11 +30,14 @@ class SemanticRetriever:
         if not query.strip() or not self.is_ready():
             return []
 
+        # Convert the query into a dense embedding for semantic search.
         query_embedding = self.embedder.encode([query])[0]
         if hasattr(query_embedding, "tolist"):
             query_embedding = query_embedding.tolist()
+
         raw_results = self.vector_store.query(query_embedding, top_k=top_k or self.top_k)
 
+        # Normalize Chroma query output into a consistent list of evidence items.
         documents = raw_results.get("documents", [[]])[0]
         metadatas = raw_results.get("metadatas", [[]])[0]
         distances = raw_results.get("distances", [[]])[0]

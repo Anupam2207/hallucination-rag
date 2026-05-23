@@ -14,6 +14,10 @@ class OllamaServiceError(RuntimeError):
 
 
 class OllamaClient:
+    """Wrapper for the local Ollama Python client.
+
+    This class handles model selection, fallback logic, and basic health checks.
+    """
     def __init__(
         self,
         host: str | None = None,
@@ -56,6 +60,7 @@ class OllamaClient:
             response = client.generate(model=target_model, prompt=prompt, options=options)
             return response["response"].strip()
         except Exception as exc:
+            # If the primary model fails, attempt to fall back to a secondary model.
             if self.fallback_model and target_model != self.fallback_model:
                 try:
                     response = client.generate(

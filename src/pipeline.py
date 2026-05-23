@@ -26,6 +26,9 @@ class HallucinationRAGPipeline:
 
     def __init__(self, retrieval_mode: str | None = None) -> None:
         self.logger = get_logger('pipeline')
+
+        # Share a single embedder instance across retrieval and detection to avoid
+        # re-loading models multiple times and to keep embeddings consistent.
         shared_embedder = EmbeddingModel()
         shared_ollama_client = OllamaClient()
 
@@ -35,8 +38,11 @@ class HallucinationRAGPipeline:
         else:
             self.retriever = SemanticRetriever(embedder=shared_embedder)
 
+        # The generator and corrector both use the Ollama client.
         self.generator = BaseAnswerGenerator(client=shared_ollama_client)
         self.corrector = AnswerCorrector(client=shared_ollama_client)
+
+        # Detector uses similarity scoring plus optional rule-based adjustments.
         self.detector = HallucinationDetector(support_scorer=SupportScorer(embedder=shared_embedder))
         self.retrieval_mode = mode
 
@@ -52,14 +58,18 @@ class HallucinationRAGPipeline:
         except OllamaServiceError as exc:
             raise RuntimeError(str(exc)) from exc
 
+        # Retrieve evidence for the query from Chroma or hybrid retrieval.
         evidence = self.retriever.retrieve(query, top_k=top_k)
         if not evidence:
             warnings.append(
                 'No evidence was retrieved. Build the index or expand the knowledge base for better results.'
             )
 
+        # Use the original raw LLM answer along with retrieved evidence to create a
+        # grounded corrected answer.
         corrected_answer = self.corrector.correct(query, raw_answer, evidence)
 
+        # Compute claim-level detection results before and after correction.
         raw_detection = self.detector.detect(raw_answer, evidence)
         corrected_detection = self.detector.detect(corrected_answer, evidence)
         metrics = HallucinationMetrics.summarize(raw_detection, corrected_detection)

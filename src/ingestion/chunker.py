@@ -9,6 +9,7 @@ def split_sentences(text: str) -> List[str]:
     text = text.strip()
     if not text:
         return []
+    # Split on sentence boundaries while preserving punctuation markers.
     sentences = [part.strip() for part in _SENTENCE_SPLIT_RE.split(text) if part.strip()]
     return sentences or [text]
 
@@ -30,6 +31,8 @@ def chunk_text_with_metadata(text: str, chunk_size: int = 500, chunk_overlap: in
     if chunk_overlap >= chunk_size:
         raise ValueError('chunk_overlap must be smaller than chunk_size')
 
+    # Break the document into sentence-aware chunks with optional overlap.
+
     sentences = split_sentences(text)
     if not sentences:
         return []
@@ -44,6 +47,7 @@ def chunk_text_with_metadata(text: str, chunk_size: int = 500, chunk_overlap: in
         chunk_text_value = ' '.join(sentence for _, sentence in current_sentences).strip()
         if not chunk_text_value:
             return
+        # Finalize the current chunk before starting a new one.
         start_index = current_sentences[0][0]
         end_index = current_sentences[-1][0]
         chunks.append(
@@ -58,6 +62,7 @@ def chunk_text_with_metadata(text: str, chunk_size: int = 500, chunk_overlap: in
     def keep_overlap() -> tuple[List[tuple[int, str]], int]:
         overlap_sentences: List[tuple[int, str]] = []
         overlap_len = 0
+        # Preserve a slice of the previous chunk to overlap with the next chunk.
         for item in reversed(current_sentences):
             overlap_sentences.insert(0, item)
             overlap_len += len(item[1]) + 1
@@ -77,6 +82,8 @@ def chunk_text_with_metadata(text: str, chunk_size: int = 500, chunk_overlap: in
             start = 0
             step = max(1, chunk_size - chunk_overlap)
             piece_index = 0
+            # Long sentences are split into fixed-size pieces rather than
+            # forcing the chunker to exceed the maximum chunk length.
             while start < len(sentence):
                 piece = sentence[start:start + chunk_size].strip()
                 if piece:

@@ -41,7 +41,7 @@ def render_metric_explanation() -> None:
 def main() -> None:
     st.title("Hallucination Detection and Correction in LLMs using RAG")
     st.caption(
-        "Lightweight M.Tech project demo using local Ollama, ChromaDB, "
+        "Using local Ollama, ChromaDB, "
         "and claim-level evidence support scoring."
     )
 

@@ -5,9 +5,8 @@ from typing import Any, Dict, List
 from src.paths import CHROMA_DIR
 
 
-# Safe telemetry suppression for Chroma.
-# Do NOT set CHROMA_PRODUCT_TELEMETRY_IMPL here; some Chroma versions do not have
-# chromadb.telemetry.product.null.NullTelemetry and will crash during startup.
+# Disable Chroma telemetry by default so queries remain privacy-preserving.
+# Note: some Chroma versions crash if CHROMA_PRODUCT_TELEMETRY_IMPL is forced.
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 os.environ.setdefault("CHROMA_TELEMETRY", "False")
 
@@ -49,6 +48,7 @@ class ChromaVectorStore:
         )
 
     def count(self) -> int:
+        # Return the number of embeddings stored in the collection.
         return int(self.collection.count())
 
     def upsert_documents(

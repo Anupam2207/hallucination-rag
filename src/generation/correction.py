@@ -19,6 +19,7 @@ class AnswerCorrector:
             "references:",
             "explanation:",
         )
+        # Remove unwanted assistant metadata and explanatory comments from the output.
         cleaned_lines: list[str] = []
         for line in answer.splitlines():
             stripped = line.strip()
@@ -95,6 +96,7 @@ class AnswerCorrector:
         if not evidence_block.strip():
             return "The retrieved evidence is insufficient to answer this question reliably."
 
+        # Compose a prompt that instructs Ollama to rewrite the answer using only the evidence.
         prompt = f"""
 You are a factual answer correction assistant.
 
@@ -128,6 +130,7 @@ Corrected answer:
 """.strip()
 
         answer = self.client.generate(prompt).strip()
+        # Normalize the model output by removing any stray meta text.
         answer = self._remove_meta_lines(answer)
         answer = self._sanitize_common_rag_hallucinations(answer, evidence_block)
         return answer

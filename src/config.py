@@ -28,7 +28,10 @@ def load_yaml(file_path: Path) -> ConfigDict:
 
 @lru_cache(maxsize=1)
 def load_all_configs() -> Dict[str, ConfigDict]:
-    """Load and cache all configuration files."""
+    """Load and cache all configuration files.
+
+    The cached result avoids repeated disk access for each config lookup.
+    """
     return {
         'settings': load_yaml(CONFIG_DIR / 'settings.yaml'),
         'models': load_yaml(CONFIG_DIR / 'models.yaml'),

@@ -8,6 +8,7 @@ from src.config import load_all_configs
 
 @lru_cache(maxsize=2)
 def _load_model(model_name: str):
+    """Load the sentence-transformers model and cache it for reuse."""
     try:
         from sentence_transformers import SentenceTransformer
 
@@ -30,6 +31,7 @@ class EmbeddingModel:
         if isinstance(texts, str):
             texts = [texts]
         texts = list(texts)
+        # Use the sentence transformer to create normalized dense embeddings.
         return self.model.encode(
             texts,
             convert_to_numpy=True,

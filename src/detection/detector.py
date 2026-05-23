@@ -59,6 +59,7 @@ class HallucinationDetector:
         )
 
     def _label_from_similarity(self, score: float) -> str:
+        # Map a continuous similarity score into a discrete support label.
         if score >= self.support_threshold:
             return "supported"
         if score >= self.warning_threshold:
@@ -66,6 +67,7 @@ class HallucinationDetector:
         return "unsupported"
 
     def _fuse_label(self, similarity_label: str, rule_flags: list[str], nli_result: dict) -> str:
+        # If rule-based checks detect unsupported evidence, override the label.
         if rule_flags:
             return "unsupported"
 
@@ -75,12 +77,14 @@ class HallucinationDetector:
 
         if nli_label == "contradiction" and nli_score is not None and nli_score >= self.nli_contradiction_threshold:
             return "unsupported"
+
         if nli_label == "entailment" and nli_score is not None and nli_score >= self.nli_entailment_threshold:
             # NLI confirms support; promote weak related evidence to supported.
             if similarity_label in {"supported", "weak_support"}:
                 return "supported"
+
         if nli_label == "neutral" and similarity_label == "supported":
-            # Similarity says related, but NLI cannot entail it.
+            # Similarity says related, but NLI cannot entail it. Demote to weak support.
             return "weak_support"
 
         return similarity_label
