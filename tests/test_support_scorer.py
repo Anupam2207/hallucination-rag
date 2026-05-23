@@ -82,3 +82,23 @@ def test_interpretability_claim_gets_rule_flag() -> None:
     )
     assert 'interpretability_not_in_evidence' in result['rule_flags']
     assert result['score'] <= 0.35
+
+
+def test_unsupported_year_without_evidence_year_gets_rule_flag() -> None:
+    scorer = SupportScorer(embedder=FakeEmbedder())
+    result = scorer.score_claim_against_evidence(
+        'RAG was introduced in 2021.',
+        [{'text': 'RAG combines retrieval with language generation.'}],
+    )
+    assert 'claim_year_not_supported_by_evidence' in result['rule_flags']
+    assert result['score'] <= 0.35
+
+
+def test_citation_number_not_used_as_factual_number() -> None:
+    scorer = SupportScorer(embedder=FakeEmbedder())
+    result = scorer.score_claim_against_evidence(
+        'RAG combines retrieval and generation [Evidence-1].',
+        [{'text': 'RAG combines retrieval and generation.'}],
+    )
+    assert 'claim_numeric_not_supported_by_evidence' not in result['rule_flags']
+    assert 'claim_year_not_supported_by_evidence' not in result['rule_flags']

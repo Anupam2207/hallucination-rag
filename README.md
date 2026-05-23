@@ -299,3 +299,32 @@ Recommended hardware settings:
 - NLI enabled only for selected evaluation runs
 - CPU device for NLI/reranker
 - max workers = 1 on 8 GB RAM machines
+
+## Safety Fixes Added After Factual Verification Review
+
+The latest version adds a correction-safety layer so that the corrected answer cannot silently retain or introduce high-risk unsupported claims.
+
+Key safeguards:
+
+- Citation markers such as `[Evidence-1]` are stripped before claim extraction, factual consistency checks, NLI verification, and metric calculation. They are kept only in the final user-facing corrected answer.
+- Non-factual assistant phrases such as "I couldn't find..." or "Could you please provide more context?" are skipped during claim scoring.
+- Year/date/number claims are checked more strictly. If a claim says a year such as `2021` but the retrieved evidence does not support that year, the detector adds `claim_year_not_supported_by_evidence`.
+- Critical flags such as `fine_tuning_not_in_evidence`, `numeric_mismatch_with_evidence`, `claim_year_not_supported_by_evidence`, `entity_mismatch_with_evidence`, and `nli_contradiction` force unsupported labeling.
+- The pipeline includes a query-aware answerability gate. If the user asks for a specific fact that is not supported by retrieved evidence, the system returns a safe insufficient-evidence response instead of letting the LLM invent an answer.
+- After correction, the corrected answer is verified again. If critical unsupported corrected claims remain, a conservative repair pass removes the unsafe sentence.
+- Metrics now include `corrected_critical_unsupported_count`, `correction_safety_passed`, and an `unsafe` correction status.
+
+Recommended safety test:
+
+```bash
+python scripts/run_single_query.py --query "RAG was introduced in 2021."
+```
+
+Expected behavior: the system should not claim that RAG was introduced in 2021 unless the knowledge base explicitly supports that year.
+
+After adding or changing files in `data/raw/`, rebuild the knowledge base:
+
+```bash
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+```

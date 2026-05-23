@@ -16,6 +16,11 @@ def main() -> None:
             "numeric_mismatch_with_evidence",
         ),
         (
+            "RAG was introduced in 2021.",
+            "RAG combines retrieval with language generation.",
+            "claim_year_not_supported_by_evidence",
+        ),
+        (
             "The Formula 1 hybrid era began in 2014.",
             "The hybrid era officially began in Formula 1 in 2014.",
             None,
@@ -25,7 +30,13 @@ def main() -> None:
             "Lewis Hamilton won the 2021 Formula 1 championship.",
             "entity_mismatch_with_evidence",
         ),
+        (
+            "RAG combines retrieval and generation [Evidence-1].",
+            "RAG combines retrieval with language generation.",
+            None,
+        ),
     ]
+
     for claim, evidence, expected_flag in cases:
         result = run_factual_consistency_checks(claim, evidence)
         print("\nClaim:", claim)
@@ -35,6 +46,7 @@ def main() -> None:
             assert expected_flag in result["flags"]
         else:
             assert result["flags"] == []
+
     print("\nFactual consistency smoke test passed.")
 
 

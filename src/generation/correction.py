@@ -62,8 +62,16 @@ class AnswerCorrector:
                     "generator uses the retrieved passages as context",
                 ),
                 (
-                    r"fine[- ]?tuned\s+on\s+(?:these\s+|the\s+)?retrieved\s+(?:passages|texts?|documents?)",
-                    "conditioned on the retrieved passages",
+                    r"fine[- ]?tuned\s+on\s+(?:these\s+|the\s+)?retrieved\s+(?:passages|texts?|documents?|information)",
+                    "using the retrieved evidence as context",
+                ),
+                (
+                    r"fine[- ]?tunes?\s+(?:a\s+)?generator\s+model\s+on\s+(?:these\s+|the\s+)?retrieved\s+information",
+                    "uses the retrieved evidence as context",
+                ),
+                (
+                    r"generator\s+model\s+is\s+fine[- ]?tuned\s+on\s+(?:these\s+|the\s+)?retrieved\s+information",
+                    "generator uses the retrieved evidence as context",
                 ),
             ]
             for pattern, replacement in replacements:
@@ -110,12 +118,16 @@ Rules:
 - Preserve supported claims and replace unsupported claims using retrieved evidence.
 - Remove claims that are not directly supported by the retrieved evidence.
 - Do not add new claims beyond the retrieved evidence.
+- Do not preserve any factual detail from the user query unless retrieved evidence explicitly supports it.
+- Do not include years, dates, numbers, author names, paper names, benchmark names, task examples, or performance claims unless the evidence explicitly states them.
+- Do not say "introduced in 2021" or any other year unless the retrieved evidence explicitly contains that year.
 - Keep the answer concise, natural, and grammatically correct.
 - For standard RAG, say that the generator uses retrieved passages as context.
-- Do not say the generator is fine-tuned unless the retrieved evidence explicitly says fine-tuning.
+- Do not say the generator is fine-tuned unless the retrieved evidence explicitly says fine-tuning or fine-tuned.
 - Do not claim RAG needs less training data unless the retrieved evidence explicitly says so.
 - Do not mention explicit knowledge representation unless the retrieved evidence explicitly says so.
-- Do not add unsupported task examples such as sentiment analysis, machine translation, text classification, or dialogue systems.
+- Do not add unsupported task examples such as sentiment analysis, machine translation, text classification, summarization, conversational AI, or dialogue systems.
+- If the evidence does not support the user query's specific factual claim, say so clearly.
 - If the evidence is insufficient, say: "The retrieved evidence is insufficient to answer this question reliably."
 
 User query:

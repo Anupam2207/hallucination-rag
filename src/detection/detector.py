@@ -6,6 +6,7 @@ from src.detection.nli_verifier import NLIVerifier
 from src.detection.span_highlighter import highlight_hallucinated_spans
 from src.detection.support_scorer import SupportScorer
 from src.retrieval.embedder import EmbeddingModel
+from src.utils.text_cleaning import normalize_for_detection
 
 
 class HallucinationDetector:
@@ -49,6 +50,20 @@ class HallucinationDetector:
             return "weak_support"
         return "unsupported"
 
+    @staticmethod
+    def critical_rule_flags() -> set[str]:
+        return {
+            "nli_contradiction",
+            "numeric_mismatch_with_evidence",
+            "claim_year_not_supported_by_evidence",
+            "claim_date_not_supported_by_evidence",
+            "claim_numeric_not_supported_by_evidence",
+            "entity_mismatch_with_evidence",
+            "fine_tuning_not_in_evidence",
+            "unsupported_task_example_not_in_evidence",
+            "training_data_requirement_not_in_evidence",
+        }
+
     def _fuse_decision(self, score: float, similarity_label: str, rule_flags: list[str], nli_result: dict) -> tuple[str, float, list[str]]:
         fused_flags = list(dict.fromkeys(rule_flags))
         final_score = float(score)
@@ -62,8 +77,12 @@ class HallucinationDetector:
                 fused_flags.append("nli_contradiction")
             return "unsupported", min(final_score, 0.20), fused_flags
 
-        # 2. Factual mismatch flags override cosine similarity.
-        if any(flag in fused_flags for flag in ["numeric_mismatch_with_evidence", "entity_mismatch_with_evidence"]):
+        # 2. Critical factual/rule flags override cosine similarity.
+        if any(flag in self.critical_rule_flags() for flag in fused_flags):
+            if "numeric_mismatch_with_evidence" in fused_flags:
+                return "unsupported", min(final_score, 0.25), fused_flags
+            if "entity_mismatch_with_evidence" in fused_flags:
+                return "unsupported", min(final_score, 0.30), fused_flags
             return "unsupported", min(final_score, 0.35), fused_flags
 
         # 3. Other rule flags indicate unsupported details.
@@ -98,7 +117,7 @@ class HallucinationDetector:
 
             similarity_label = self._label_from_similarity(score)
             if getattr(self.nli_verifier, "enabled", False) and (score >= self.nli_min_similarity_to_run or rule_flags):
-                nli_result = self.nli_verifier.verify(claim, best_evidence_text)
+                nli_result = self.nli_verifier.verify(normalize_for_detection(claim), normalize_for_detection(best_evidence_text))
             else:
                 nli_result = {"enabled": getattr(self.nli_verifier, "enabled", False), "available": False, "label": "not_run", "score": None, "scores": {}, "error": None}
             final_label, final_score, fused_flags = self._fuse_decision(score, similarity_label, rule_flags, nli_result)

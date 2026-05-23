@@ -11,6 +11,7 @@ import re
 from typing import Dict, List
 
 from src.detection.factual_consistency import extract_numbers, extract_years
+from src.utils.text_cleaning import normalize_for_detection
 
 _REASON_PATTERNS = {
     "fine_tuning": [r"fine[- ]?tun\w*", r"finetun\w*"],
@@ -26,6 +27,9 @@ _REASON_PATTERNS = {
 
 _FLAG_REASON_MAP = {
     "numeric_mismatch_with_evidence": "numeric_or_date_mismatch",
+    "claim_year_not_supported_by_evidence": "claim_year_not_supported_by_evidence",
+    "claim_date_not_supported_by_evidence": "claim_date_not_supported_by_evidence",
+    "claim_numeric_not_supported_by_evidence": "claim_numeric_not_supported_by_evidence",
     "entity_mismatch_with_evidence": "entity_mismatch",
     "fine_tuning_not_in_evidence": "unsupported_fine_tuning",
     "training_data_requirement_not_in_evidence": "unsupported_training_data_claim",
@@ -73,11 +77,16 @@ def detect_hallucinated_spans(claim: str, evidence: str, rule_flags: List[str] |
     rule_flags = rule_flags or []
     spans: List[Dict[str, object]] = []
 
-    if "numeric_mismatch_with_evidence" in rule_flags:
-        evidence_values = set(extract_years(evidence)) | set(extract_numbers(evidence))
-        for value in extract_years(claim) + extract_numbers(claim):
+    clean_claim = normalize_for_detection(claim)
+    clean_evidence = normalize_for_detection(evidence)
+
+    numeric_flags = {"numeric_mismatch_with_evidence", "claim_year_not_supported_by_evidence", "claim_date_not_supported_by_evidence", "claim_numeric_not_supported_by_evidence"}
+    if any(flag in rule_flags for flag in numeric_flags):
+        evidence_values = set(extract_years(clean_evidence)) | set(extract_numbers(clean_evidence))
+        for value in extract_years(clean_claim) + extract_numbers(clean_claim):
             if value not in evidence_values:
-                _add_span(spans, claim, value, "numeric_or_date_mismatch")
+                reason = "numeric_or_date_mismatch" if "numeric_mismatch_with_evidence" in rule_flags else "claim_year_or_number_not_supported"
+                _add_span(spans, claim, value, reason)
 
     for flag in rule_flags:
         reason = _FLAG_REASON_MAP.get(flag)

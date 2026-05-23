@@ -9,13 +9,34 @@ from src.detection.span_highlighter import highlight_hallucinated_spans
 
 
 def main() -> None:
-    result = highlight_hallucinated_spans(
-        "RAG was introduced in 2021.",
-        "RAG was introduced in 2020.",
-        ["numeric_mismatch_with_evidence"],
+    cases = [
+        (
+            "RAG was introduced in 2021.",
+            "RAG was introduced in 2020.",
+            ["numeric_mismatch_with_evidence"],
+        ),
+        (
+            "RAG was introduced in 2021.",
+            "RAG combines retrieval and generation.",
+            ["claim_year_not_supported_by_evidence"],
+        ),
+        (
+            "RAG fine-tunes a generator model on retrieved passages.",
+            "RAG uses retrieved passages as context.",
+            ["fine_tuning_not_in_evidence"],
+        ),
+    ]
+    for claim, evidence, flags in cases:
+        result = highlight_hallucinated_spans(claim, evidence, flags)
+        print(result)
+        assert result["hallucinated_spans"]
+    citation_result = highlight_hallucinated_spans(
+        "RAG combines retrieval and generation [Evidence-1].",
+        "RAG combines retrieval and generation.",
+        [],
     )
-    print(result)
-    assert "[2021]" in result["highlighted_claim"]
+    print(citation_result)
+    assert citation_result["hallucinated_spans"] == []
     print("Span highlighter smoke test passed.")
 
 

@@ -5,6 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from src.detection.factual_consistency import run_factual_consistency_checks
 from src.retrieval.embedder import EmbeddingModel
+from src.utils.text_cleaning import normalize_for_detection
 
 
 class SupportScorer:
@@ -32,8 +33,8 @@ class SupportScorer:
         return {word for word in words if word not in stopwords}
 
     def lexical_overlap_score(self, claim: str, evidence: str) -> float:
-        claim_tokens = self._tokens(claim)
-        evidence_tokens = self._tokens(evidence)
+        claim_tokens = self._tokens(normalize_for_detection(claim))
+        evidence_tokens = self._tokens(normalize_for_detection(evidence))
         if not claim_tokens or not evidence_tokens:
             return 0.0
         overlap = claim_tokens.intersection(evidence_tokens)
@@ -47,8 +48,10 @@ class SupportScorer:
 
     @staticmethod
     def _missing_specific_evidence_flags(claim: str, evidence_texts: list[str]) -> list[str]:
-        claim_lower = claim.lower()
-        evidence_lower = " ".join(evidence_texts).lower()
+        clean_claim = normalize_for_detection(claim)
+        clean_evidence_texts = [normalize_for_detection(text) for text in evidence_texts]
+        claim_lower = clean_claim.lower()
+        evidence_lower = " ".join(clean_evidence_texts).lower()
         flags: list[str] = []
 
         phrase_groups = {
@@ -124,7 +127,11 @@ class SupportScorer:
             return score, flags, factual_result
 
         # Numeric/entity contradictions are stronger than unsupported examples.
-        if any(flag in flags for flag in ["numeric_mismatch_with_evidence", "entity_mismatch_with_evidence"]):
+        if "numeric_mismatch_with_evidence" in flags:
+            return min(score, 0.25), flags, factual_result
+        if "entity_mismatch_with_evidence" in flags:
+            return min(score, 0.30), flags, factual_result
+        if any(flag in flags for flag in ["claim_year_not_supported_by_evidence", "claim_date_not_supported_by_evidence", "claim_numeric_not_supported_by_evidence"]):
             return min(score, 0.35), flags, factual_result
 
         return min(score, 0.35), flags, factual_result
@@ -154,15 +161,17 @@ class SupportScorer:
                 "factual_consistency": {"flags": [], "details": {}},
             }
 
-        claim_embedding = self.embedder.encode([claim])
-        evidence_embeddings = self.embedder.encode(evidence_texts)
+        clean_claim = normalize_for_detection(claim)
+        clean_evidence_texts = [normalize_for_detection(text) for text in evidence_texts]
+        claim_embedding = self.embedder.encode([clean_claim])
+        evidence_embeddings = self.embedder.encode(clean_evidence_texts)
         similarities = cosine_similarity(claim_embedding, evidence_embeddings)[0]
 
         best_score = 0.0
         best_raw_score = 0.0
         best_index: int | None = None
         for index, semantic_score in enumerate(similarities):
-            lexical_score = self.lexical_overlap_score(claim, evidence_texts[index])
+            lexical_score = self.lexical_overlap_score(clean_claim, clean_evidence_texts[index])
             if lexical_score >= 0.60:
                 hybrid_score = max(float(semantic_score), float(lexical_score))
             else:
@@ -173,10 +182,11 @@ class SupportScorer:
                 best_index = index
 
         best_evidence = evidence_texts[best_index] if best_index is not None else ""
+        best_evidence_clean = clean_evidence_texts[best_index] if best_index is not None else ""
         capped_score, flags, factual_result = self._apply_rule_caps(
-            claim,
-            evidence_texts,
-            best_evidence,
+            clean_claim,
+            clean_evidence_texts,
+            best_evidence_clean,
             best_score,
         )
 

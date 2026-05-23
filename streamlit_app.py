@@ -15,11 +15,13 @@ def get_pipeline() -> HallucinationRAGPipeline:
 def render_status(metrics: dict) -> None:
     status = metrics.get("correction_status", "no_change")
     if status == "improved":
-        st.success("Correction improved factual grounding or reduced hallucination.")
+        st.success("Correction improved factual grounding and passed safety checks.")
     elif status == "partially_improved":
-        st.warning("Correction partially improved the answer, but one metric may still need review.")
+        st.warning("Correction partially improved the answer, but some details still need review.")
     elif status == "no_change":
         st.warning("Correction preserved the metric score but did not improve it for this query.")
+    elif status == "unsafe":
+        st.error("Correction is unsafe: critical unsupported factual claims remain.")
     else:
         st.error("Correction worsened the current metric score for this query.")
 
@@ -33,7 +35,8 @@ def render_metric_explanation() -> None:
 - **Raw weighted / Corrected weighted**: weighted support where supported = 1.0, weak support = 0.5, unsupported = 0.0.
 - **Hallucination Δ**: raw hallucination rate minus corrected hallucination rate. Higher is better.
 - **Factual improvement**: corrected weighted support minus raw weighted support. Higher is better.
-- **Correction status**: improved, partially improved, no change, or worsened based on the two key before/after metrics.
+- **Critical unsupported count**: unsupported claims with factual/rule flags such as wrong year, unsupported fine-tuning, or NLI contradiction.
+- **Correction status**: improved, partially improved, no change, worsened, or unsafe. Unsafe means critical unsupported claims remain after correction.
 """
         )
 
@@ -64,7 +67,11 @@ def main() -> None:
     for warning in result.get("warnings", []):
         st.warning(warning)
 
-    st.caption(f"Retrieval mode: {result.get('retrieval_mode', 'unknown')}")
+    st.caption(f"Retrieval mode: {result.get('retrieval_mode', 'unknown')} | Answerability: {result.get('answerability_status', result.get('answerable'))}")
+    if result.get("correction_repaired"):
+        st.warning("Correction repair removed unsupported corrected claims.")
+        with st.expander("Removed unsupported corrected claims"):
+            st.write(result.get("removed_unsupported_corrected_claims", []))
 
     col1, col2 = st.columns(2)
     with col1:
@@ -75,13 +82,14 @@ def main() -> None:
         st.write(result["corrected_answer"])
 
     metrics = result["metrics"]
-    metric_cols = st.columns(6)
+    metric_cols = st.columns(7)
     metric_cols[0].metric("Raw support", f"{metrics['raw_support_ratio']:.2f}")
     metric_cols[1].metric("Corrected support", f"{metrics['corrected_support_ratio']:.2f}")
     metric_cols[2].metric("Raw weighted", f"{metrics['raw_weighted_support_ratio']:.2f}")
     metric_cols[3].metric("Corrected weighted", f"{metrics['corrected_weighted_support_ratio']:.2f}")
     metric_cols[4].metric("Hallucination Δ", f"{metrics['hallucination_reduction']:.2f}")
     metric_cols[5].metric("Factual improvement", f"{metrics['factual_improvement']:.2f}")
+    metric_cols[6].metric("Critical unsupported", str(metrics.get("corrected_critical_unsupported_count", 0)))
 
     render_status(metrics)
     render_metric_explanation()
