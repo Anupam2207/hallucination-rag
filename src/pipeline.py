@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from src.config import get_config_value
 from src.detection.detector import HallucinationDetector
-from src.detection.factual_consistency import extract_dates, extract_numbers, extract_years
+from src.detection.factual_consistency import extract_capitalized_entities, extract_dates, extract_numbers, extract_years
 from src.detection.support_scorer import SupportScorer
 from src.evaluation.metrics import CRITICAL_UNSUPPORTED_FLAGS, HallucinationMetrics
 from src.generation.base_answer import BaseAnswerGenerator
@@ -13,7 +13,7 @@ from src.logger import get_logger
 from src.retrieval.embedder import EmbeddingModel
 from src.retrieval.hybrid_retriever import HybridRetriever
 from src.retrieval.retriever import SemanticRetriever
-from src.utils.text_cleaning import normalize_for_detection
+from src.utils.text_cleaning import normalize_for_detection, remove_display_citations
 
 
 class HallucinationRAGPipeline:
@@ -40,11 +40,12 @@ class HallucinationRAGPipeline:
 
     @staticmethod
     def _evidence_strength(item: Dict[str, Any]) -> float:
-        for key in ("dense_similarity", "similarity"):
+        # Hybrid final_score is already normalized to 0..1-ish. Prefer it.
+        for key in ("final_score", "weighted_score", "dense_similarity", "similarity"):
             value = item.get(key)
             if value is not None:
                 try:
-                    return float(value)
+                    return max(0.0, min(1.0, float(value)))
                 except (TypeError, ValueError):
                     pass
         value = item.get("rrf_score")
@@ -90,14 +91,27 @@ class HallucinationRAGPipeline:
             return False, "insufficient_evidence_for_specific_fact"
         if query_dates and not query_dates.issubset(evidence_dates):
             return False, "insufficient_evidence_for_specific_fact"
-        # Be conservative with generic numbers; only enforce if query asks a factual relation.
         if query_numbers and HallucinationRAGPipeline._query_requires_specific_fact(clean_query):
             if not query_numbers.issubset(evidence_numbers):
                 return False, "insufficient_evidence_for_specific_fact"
-        if HallucinationRAGPipeline._query_requires_specific_fact(clean_query):
-            lower = clean_query.lower()
-            asks_year = any(token in lower for token in ("when", "which year", "introduced", "released", "published", "launched"))
-            if asks_year and not evidence_years and not query_years:
+        lower = clean_query.lower()
+        asks_year = any(token in lower for token in ("when", "which year", "introduced", "released", "published", "launched"))
+        if asks_year and not evidence_years and not query_years:
+            return False, "insufficient_evidence_for_specific_fact"
+
+        asks_who_intro = any(pattern in lower for pattern in (
+            "who introduced", "who invented", "who proposed", "who created", "who developed"
+        ))
+        if asks_who_intro:
+            entities = set(extract_capitalized_entities(evidence_text))
+            # Require at least one person/organization-like entity beyond the
+            # target acronym/name and at least one relation word in evidence.
+            relation_present = any(term in evidence_text.lower() for term in (
+                "introduced", "invented", "proposed", "created", "developed", "authored", "written by"
+            ))
+            stop_entities = {"RAG", "Retrieval", "Augmented", "Generation", "ColBERT", "TruthfulQA"}
+            meaningful_entities = {entity for entity in entities if entity not in stop_entities}
+            if not relation_present or not meaningful_entities:
                 return False, "insufficient_evidence_for_specific_fact"
         return True, None
 
@@ -125,10 +139,10 @@ class HallucinationRAGPipeline:
 
     @staticmethod
     def _safe_insufficient_response(query: str) -> str:
-        return (
-            "The knowledge base does not provide evidence for the specific claim: "
-            f'"{query}".'
-        )
+        query = query.strip()
+        if query.endswith('.'):
+            query = query[:-1]
+        return f'The knowledge base does not provide evidence for the specific claim: "{query}."'
 
     @staticmethod
     def _claim_has_critical_flags(claim_result: Dict[str, Any]) -> bool:
@@ -154,12 +168,32 @@ class HallucinationRAGPipeline:
             return False
         return len(claim_tokens & sentence_tokens) / len(claim_tokens) >= 0.65
 
-    def _repair_corrected_answer(self, corrected_answer: str, corrected_detection: Dict[str, Any]) -> tuple[str, bool, List[Dict[str, Any]]]:
+
+    @staticmethod
+    def _is_rag_query(query: str) -> bool:
+        lower = normalize_for_detection(query).lower()
+        return any(term in lower for term in ("rag", "retrieval augmented generation", "retrieval-augmented generation"))
+
+    @staticmethod
+    def _is_generic_rag_boilerplate(sentence: str) -> bool:
+        lower = normalize_for_detection(sentence).lower()
+        patterns = (
+            "generator uses retrieved passages as context",
+            "language model uses retrieved passages as context",
+            "generator uses retrieved evidence as context",
+        )
+        return any(pattern in lower for pattern in patterns)
+
+    def _repair_corrected_answer(self, corrected_answer: str, corrected_detection: Dict[str, Any], query: str = "") -> tuple[str, bool, List[Dict[str, Any]]]:
         critical_claims = [
             claim for claim in corrected_detection.get("claims", [])
-            if claim.get("label") == "unsupported" and self._claim_has_critical_flags(claim)
+            if claim.get("label") == "unsupported"
+            and (self._claim_has_critical_flags(claim) or float(claim.get("support_score", 0.0) or 0.0) < 0.40)
         ]
-        if not critical_claims:
+        # For non-RAG queries, remove generic RAG boilerplate even if the claim
+        # extractor did not classify it as critical.
+        boilerplate_removal = not self._is_rag_query(query)
+        if not critical_claims and not boilerplate_removal:
             return corrected_answer, False, []
 
         sentences = self._split_sentences(corrected_answer)
@@ -178,6 +212,13 @@ class HallucinationRAGPipeline:
                     "rule_flags": matched_critical.get("rule_flags", []),
                     "highlighted_claim": matched_critical.get("highlighted_claim"),
                 })
+            elif boilerplate_removal and self._is_generic_rag_boilerplate(sentence):
+                removed.append({
+                    "sentence": sentence,
+                    "claim": sentence,
+                    "rule_flags": ["generic_rag_boilerplate_removed"],
+                    "highlighted_claim": sentence,
+                })
             else:
                 kept_sentences.append(sentence)
 
@@ -186,6 +227,28 @@ class HallucinationRAGPipeline:
         else:
             repaired = "Insufficient evidence available in the knowledge base to provide a supported corrected answer."
         return repaired, True, removed
+
+    def _safe_return(self, query: str, evidence: List[Dict[str, Any]], warnings: List[str], status: str) -> Dict[str, Any]:
+        safe_response = self._safe_insufficient_response(query)
+        empty_detection = self._empty_detection()
+        metrics = HallucinationMetrics.summarize(empty_detection, empty_detection)
+        return {
+            "query": query,
+            "retrieval_mode": self.retrieval_mode,
+            "answerable": False,
+            "answerability_status": status,
+            "warnings": warnings,
+            "evidence": evidence,
+            "raw_answer": safe_response,
+            "raw_detection": empty_detection,
+            "corrected_answer": safe_response,
+            "corrected_answer_cited": safe_response,
+            "used_evidence_ids": [item.get("evidence_id") for item in evidence if item.get("evidence_id")],
+            "corrected_detection": empty_detection,
+            "correction_repaired": False,
+            "removed_unsupported_corrected_claims": [],
+            "metrics": metrics,
+        }
 
     def run(self, query: str, top_k: int | None = None) -> Dict[str, Any]:
         query = query.strip()
@@ -202,44 +265,30 @@ class HallucinationRAGPipeline:
         if specific_warning:
             warnings.append(specific_warning)
 
-        if not answerable_by_score or not specific_supported:
-            if not answerable_by_score:
+        if not answerable_by_score:
+            if "insufficient_evidence" not in warnings:
                 warnings.append("insufficient_evidence")
-            safe_response = self._safe_insufficient_response(query)
-            empty_detection = self._empty_detection()
-            metrics = HallucinationMetrics.summarize(empty_detection, empty_detection)
-            return {
-                "query": query,
-                "retrieval_mode": self.retrieval_mode,
-                "answerable": False,
-                "answerability_status": "not_answerable_specific_fact" if not specific_supported else "not_answerable",
-                "warnings": list(dict.fromkeys(warnings)),
-                "evidence": evidence,
-                "raw_answer": safe_response,
-                "raw_detection": empty_detection,
-                "corrected_answer": safe_response,
-                "corrected_detection": empty_detection,
-                "correction_repaired": False,
-                "removed_unsupported_corrected_claims": [],
-                "metrics": metrics,
-            }
+            return self._safe_return(query, evidence, warnings, "not_answerable")
+
+        if not specific_supported:
+            return self._safe_return(query, evidence, warnings, "not_answerable_specific_fact")
 
         try:
             raw_answer = self.generator.generate_answer(query)
         except OllamaServiceError as exc:
-            raise RuntimeError(str(exc)) from exc
+            raw_answer = f"LLM generation failed: {exc}"
+            warnings.append("llm_generation_failed")
 
         raw_detection = self.detector.detect(raw_answer, evidence)
-        corrected_answer = self.corrector.correct(query, raw_answer, evidence)
+        corrected_answer_cited = self.corrector.correct(query, raw_answer, evidence)
+        corrected_answer = remove_display_citations(corrected_answer_cited)
         corrected_detection = self.detector.detect(corrected_answer, evidence)
-        repaired_answer, correction_repaired, removed_claims = self._repair_corrected_answer(
-            corrected_answer,
-            corrected_detection,
-        )
-        if correction_repaired:
+
+        repaired_answer, repaired, removed = self._repair_corrected_answer(corrected_answer, corrected_detection, query)
+        if repaired:
             corrected_answer = repaired_answer
             corrected_detection = self.detector.detect(corrected_answer, evidence)
-            warnings.append("correction_repaired_removed_unsupported_claims")
+
         metrics = HallucinationMetrics.summarize(raw_detection, corrected_detection)
 
         return {
@@ -247,13 +296,15 @@ class HallucinationRAGPipeline:
             "retrieval_mode": self.retrieval_mode,
             "answerable": True,
             "answerability_status": "answerable",
-            "warnings": list(dict.fromkeys(warnings)),
+            "warnings": warnings,
             "evidence": evidence,
             "raw_answer": raw_answer,
             "raw_detection": raw_detection,
             "corrected_answer": corrected_answer,
+            "corrected_answer_cited": corrected_answer_cited,
+            "used_evidence_ids": [item.get("evidence_id") for item in evidence if item.get("evidence_id")],
             "corrected_detection": corrected_detection,
-            "correction_repaired": correction_repaired,
-            "removed_unsupported_corrected_claims": removed_claims,
+            "correction_repaired": repaired,
+            "removed_unsupported_corrected_claims": removed,
             "metrics": metrics,
         }

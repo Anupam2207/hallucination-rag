@@ -38,3 +38,21 @@ def test_create_chunk_records_has_parent_child_metadata() -> None:
     assert 'sentence_count' in first
     assert 'start_sentence_index' in first
     assert 'end_sentence_index' in first
+
+
+def test_chunk_records_include_section_and_importance_metadata() -> None:
+    document = {
+        'doc_id': 'doc2',
+        'document_title': 'Demo Paper',
+        'text': 'Abstract\nThis paper defines a demo system. Introduction\nThe system is useful.',
+        'source_rel': 'raw/txt/demo2.txt',
+        'file_name': 'demo2.txt',
+        'file_type': 'txt',
+    }
+    records = create_chunk_records(document, chunk_size=120, chunk_overlap=10)
+    assert records
+    first = records[0]
+    assert first['document_title'] == 'Demo Paper'
+    assert 'section_name' in first
+    assert 'importance_score' in first
+    assert 'chunk_position' in first

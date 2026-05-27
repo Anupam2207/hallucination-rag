@@ -17,7 +17,7 @@ def render_status(metrics: dict) -> None:
     if status == "improved":
         st.success("Correction improved factual grounding and passed safety checks.")
     elif status == "partially_improved":
-        st.warning("Correction partially improved the answer, but some details still need review.")
+        st.warning("Correction partially improved the answer, but some claims remain only partially supported.")
     elif status == "no_change":
         st.warning("Correction preserved the metric score but did not improve it for this query.")
     elif status == "unsafe":
@@ -80,6 +80,10 @@ def main() -> None:
     with col2:
         st.subheader("Corrected answer")
         st.write(result["corrected_answer"])
+        used_ids = result.get("used_evidence_ids") or []
+        if used_ids:
+            with st.expander("Evidence used for correction"):
+                st.write(", ".join(used_ids))
 
     metrics = result["metrics"]
     metric_cols = st.columns(7)

@@ -59,6 +59,7 @@ def main() -> None:
                 'file_name': doc['file_name'],
                 'file_type': doc['file_type'],
                 'source_rel': doc['source_rel'],
+                'document_title': doc.get('document_title'),
                 'text_length': doc['text_length'],
             }
             for doc in processed_documents
@@ -80,6 +81,10 @@ def main() -> None:
                 'start_sentence_index': chunk.get('start_sentence_index'),
                 'end_sentence_index': chunk.get('end_sentence_index'),
                 'parent_doc_id': chunk.get('parent_doc_id'),
+                'document_title': chunk.get('document_title'),
+                'section_name': chunk.get('section_name'),
+                'chunk_position': chunk.get('chunk_position'),
+                'importance_score': chunk.get('importance_score'),
             }
             for chunk in chunks
         ],

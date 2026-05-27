@@ -42,6 +42,10 @@ def main() -> None:
             'sentence_count': record.get('sentence_count'),
             'start_sentence_index': record.get('start_sentence_index'),
             'end_sentence_index': record.get('end_sentence_index'),
+            'document_title': record.get('document_title'),
+            'section_name': record.get('section_name'),
+            'chunk_position': record.get('chunk_position'),
+            'importance_score': record.get('importance_score', 0),
         }
         for record in chunk_records
     ]

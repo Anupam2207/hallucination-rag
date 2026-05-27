@@ -328,3 +328,52 @@ After adding or changing files in `data/raw/`, rebuild the knowledge base:
 python scripts/ingest_documents.py
 python scripts/build_vector_index.py --reset
 ```
+
+## Latest Audit Improvements
+
+This version keeps the existing architecture but hardens the main pipeline.
+
+- Ingestion now uses PyMuPDF first for PDF extraction, falls back to pypdf, and logs loaded/skipped documents.
+- Preprocessing removes common PDF noise such as URLs, DOI/arXiv strings, page numbers, bibliography sections, isolated equations, emails, and affiliation-like lines while preserving definitions, years, and section headings.
+- Chunking remains sentence-aware and now stores `document_title`, `section_name`, `chunk_position`, and `importance_score` for better evidence ranking.
+- Hybrid retrieval still uses dense ChromaDB + BM25 + RRF, but ranking now also considers dense similarity, normalized sparse score, and section importance.
+- NLI remains optional. When enabled, contradiction decisions are protected by a topical-relevance guard so unrelated premise/claim pairs are not blindly treated as contradictions.
+- Pytest is restricted to the `tests/` directory to prevent CLI scripts under `scripts/` from being collected as tests.
+
+Recommended validation:
+
+```bash
+python -m compileall -q .
+pytest -q
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+python scripts/run_single_query.py --query "What is retrieval-augmented generation?"
+```
+
+## Latest audit fixes
+
+- Hybrid retrieval now applies topical gating so sparse-only noise from unrelated papers is demoted. Queries such as `What is ColBERT?` must retrieve chunks that actually mention ColBERT instead of unrelated abstract/introduction sections.
+- BM25 query processing removes common stopwords and avoids generic query expansion such as `abstract` and `introduction`, which previously caused irrelevant PDF sections to rank too high.
+- Fused retrieval ranking now combines dense similarity, normalized sparse score, section importance, topical relevance, and RRF score.
+- The pipeline has a complete safe execution path for answerable and non-answerable queries, including safe refusal for unsupported specific factual claims.
+- Claim extraction now skips heading-like pseudo-claims such as `The RAG process typically consists of two main stages:`.
+
+
+## Corrected-answer scoring and citation handling
+
+Corrected answers may show evidence citations such as `[Evidence-1]` in the UI. These citations are display-only. Before claim extraction, factual consistency checks, NLI verification, and metric calculation, the system strips citation markers so citation numbers are not treated as factual numbers.
+
+`weak_support` means the retrieved evidence is related to the claim, but the claim is not fully verified. A correction is marked fully improved only when safety checks pass and the corrected answer has sufficiently grounded claims. If most corrected claims remain weakly supported, the status becomes `partially_improved` instead of an overconfident success.
+
+To create a clean deliverable zip without caches, local databases, generated chunks, or environment files, run:
+
+```bash
+python scripts/package_project.py --output hallucination-rag-clean.zip
+```
+
+
+## Latest correction-output policy
+
+The Streamlit UI now shows retrieved evidence separately as evidence cards. The user-facing corrected answer is intentionally clean and does not include inline `[Evidence-*]` citation markers. Evidence IDs remain available as metadata and in the retrieved-evidence panel. Detection, factual consistency checks, NLI verification, and metrics strip citations before scoring so citation numbers are never treated as factual numbers.
+
+Correction success is conservative: a result is marked as successful only when safety checks pass, hallucination does not increase, and at least one corrected claim is strongly supported. If the corrected answer is mostly weakly supported, the status is partial rather than a strong success.

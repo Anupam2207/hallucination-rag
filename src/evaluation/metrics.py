@@ -1,4 +1,4 @@
-from typing import Dict, Iterable
+from typing import Dict
 
 
 CRITICAL_UNSUPPORTED_FLAGS = {
@@ -11,11 +11,25 @@ CRITICAL_UNSUPPORTED_FLAGS = {
     "fine_tuning_not_in_evidence",
     "unsupported_task_example_not_in_evidence",
     "training_data_requirement_not_in_evidence",
+    "acronym_expansion_mismatch",
+    "definition_mismatch_with_evidence",
+    "collaborative_filtering_not_in_evidence",
+    "recommendation_system_not_in_evidence",
+    "collaborative_bert_not_in_evidence",
+    "open_source_library_not_in_evidence",
+    "ecommerce_not_in_evidence",
+    "product_review_not_in_evidence",
 }
 
 
 class HallucinationMetrics:
-    """Before/after metrics for claim-level hallucination detection."""
+    """Before/after metrics for claim-level hallucination detection.
+
+    Label meanings:
+    - supported: retrieved evidence strongly supports the claim.
+    - weak_support: evidence is related, but the claim is not fully verified.
+    - unsupported: the claim is not grounded in the retrieved evidence.
+    """
 
     @staticmethod
     def support_ratio(detection_result: Dict) -> float:
@@ -30,6 +44,13 @@ class HallucinationMetrics:
         if claim_count == 0:
             return 0.0
         return round(detection_result.get("weak_count", 0) / claim_count, 4)
+
+    @staticmethod
+    def supported_or_weak_ratio(detection_result: Dict) -> float:
+        claim_count = detection_result.get("claim_count", 0)
+        if claim_count == 0:
+            return 0.0
+        return round((detection_result.get("supported_count", 0) + detection_result.get("weak_count", 0)) / claim_count, 4)
 
     @staticmethod
     def weighted_support_ratio(detection_result: Dict) -> float:
@@ -74,6 +95,9 @@ class HallucinationMetrics:
         hallucination_reduction: float,
         corrected_critical_unsupported_count: int = 0,
         raw_critical_unsupported_count: int = 0,
+        corrected_support_ratio: float = 0.0,
+        corrected_weak_ratio: float = 0.0,
+        corrected_hallucination_rate: float = 0.0,
     ) -> str:
         eps = 1e-9
         if corrected_critical_unsupported_count > 0:
@@ -84,6 +108,15 @@ class HallucinationMetrics:
         worsened_support = factual_improvement < -eps
         increased_hallucination = hallucination_reduction < -eps
         reduced_critical = raw_critical_unsupported_count > 0 and corrected_critical_unsupported_count == 0
+
+        if corrected_hallucination_rate > 0:
+            if improved_support or reduced_hallucination or reduced_critical:
+                return "partially_improved"
+            return "worsened" if increased_hallucination or worsened_support else "no_change"
+
+        mostly_weak = corrected_weak_ratio > 0.5 and corrected_support_ratio < 0.5
+        if mostly_weak and (improved_support or reduced_hallucination or reduced_critical):
+            return "partially_improved"
 
         if (improved_support or reduced_hallucination or reduced_critical) and not (
             worsened_support or increased_hallucination
@@ -118,9 +151,23 @@ class HallucinationMetrics:
             hallucination_reduction,
             corrected_critical,
             raw_critical,
+            corrected_support,
+            corrected_weak_support,
+            corrected_hallucination,
         )
         correction_safety_passed = corrected_critical == 0
-        correction_success = status in {"improved", "partially_improved"} and correction_safety_passed
+        weak_claim_penalty = round(0.5 * corrected_weak_support, 4)
+        corrected_supported_or_weak = HallucinationMetrics.supported_or_weak_ratio(corrected_detection)
+        corrected_supported_claim_quality = round(corrected_support - weak_claim_penalty, 4)
+        # Success is intentionally stricter than status. A partially improved
+        # answer can be safer than the raw answer but still not a full correction.
+        correction_success = (
+            status == "improved"
+            and correction_safety_passed
+            and corrected_hallucination <= raw_hallucination
+            and corrected_support > 0
+            and (improvement > 0 or hallucination_reduction > 0 or raw_critical > corrected_critical)
+        )
 
         return {
             "raw_support_ratio": raw_support,
@@ -138,6 +185,9 @@ class HallucinationMetrics:
             "corrected_critical_unsupported_count": corrected_critical,
             "critical_unsupported_count": corrected_critical,
             "correction_safety_passed": correction_safety_passed,
+            "corrected_supported_or_weak_ratio": corrected_supported_or_weak,
+            "corrected_supported_claim_quality": corrected_supported_claim_quality,
+            "weak_claim_penalty": weak_claim_penalty,
             "correction_status": status,
             "correction_success": bool(correction_success),
         }

@@ -23,6 +23,11 @@ _REASON_PATTERNS = {
         r"content generation", r"dialogue systems?",
     ],
     "interpretability": [r"interpretability", r"interpretable", r"explainability", r"explainable", r"transparent", r"clear understanding", r"traceability"],
+    "unsupported_domain": [
+        r"collaborative BERT", r"collaborative filtering", r"recommendation systems?",
+        r"recommendation accuracy", r"e-commerce", r"ecommerce", r"product descriptions",
+        r"product reviews", r"reviews", r"open[- ]source library",
+    ],
 }
 
 _FLAG_REASON_MAP = {
@@ -45,6 +50,12 @@ _FLAG_REASON_MAP = {
     "dialogue_systems_not_in_evidence": "unsupported_task_example",
     "nli_contradiction": "nli_contradiction",
     "nli_neutral": "nli_neutral",
+    "collaborative_filtering_not_in_evidence": "unsupported_domain_term",
+    "recommendation_system_not_in_evidence": "unsupported_domain_term",
+    "collaborative_bert_not_in_evidence": "unsupported_domain_term",
+    "open_source_library_not_in_evidence": "unsupported_domain_term",
+    "ecommerce_not_in_evidence": "unsupported_domain_term",
+    "product_review_not_in_evidence": "unsupported_domain_term",
 }
 
 
@@ -100,6 +111,8 @@ def detect_hallucinated_spans(claim: str, evidence: str, rule_flags: List[str] |
             spans.extend(_regex_spans(claim, _REASON_PATTERNS["performance_comparison"], reason))
         elif "interpretability" in flag:
             spans.extend(_regex_spans(claim, _REASON_PATTERNS["interpretability"], reason))
+        elif flag in {"collaborative_filtering_not_in_evidence", "recommendation_system_not_in_evidence", "collaborative_bert_not_in_evidence", "open_source_library_not_in_evidence", "ecommerce_not_in_evidence", "product_review_not_in_evidence"}:
+            spans.extend(_regex_spans(claim, _REASON_PATTERNS["unsupported_domain"], reason))
         elif "task" in flag or flag.endswith("_not_in_evidence"):
             spans.extend(_regex_spans(claim, _REASON_PATTERNS["unsupported_task"], reason))
 

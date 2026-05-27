@@ -24,6 +24,13 @@ retrieval:
   rrf_k: 60
   bm25_k1: 1.5
   bm25_b: 0.75
+  dense_weight: 0.5
+  sparse_weight: 0.25
+  importance_weight: 0.1
+  topical_weight: 0.15
+  content_weight: 0.7
+  rrf_weight: 0.3
+  min_topical_score: 0.15
   answerability_threshold: 0.45
   enable_reranker: false
   reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -31,8 +38,8 @@ retrieval:
   rerank_top_n: 20
   final_top_k: 5
 detection:
-  similarity_support_threshold: 0.55
-  similarity_warning_threshold: 0.4
+  similarity_support_threshold: 0.70
+  similarity_warning_threshold: 0.45
   enable_nli: false
   nli_entailment_threshold: 0.6
   nli_contradiction_threshold: 0.6
@@ -56,3 +63,28 @@ verification:
   nli_max_evidence_chars: 900
   nli_min_similarity_to_run: 0.35
   nli_cache_enabled: true
+  nli_contradiction_relevance_threshold: 0.35
+knowledge_base:
+  mode: demo
+  include_research_pdfs: false
+  clean_pdf_keywords:
+    - fact_verification
+    - colbert_retrieval_model
+    - causes_of_hallucination
+    - vehicle_safety
+    - evolution_of_smartphones
+    - role_of_ai
+    - formula1_history
+    - ancient_indian_architecture
+  exclude_pdf_keywords:
+    - HallucinationSurvey
+    - HalluLens
+    - ProoFVer
+    - RAGTruth
+    - REFIND
+    - REALM
+    - DPR
+    - Lewis_RAG
+    - TruthfulQA
+    - ColBERT
+    - FactVerification
