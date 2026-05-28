@@ -5,6 +5,7 @@ from src.config import get_config_value
 from src.detection.detector import HallucinationDetector
 from src.detection.factual_consistency import extract_capitalized_entities, extract_dates, extract_numbers, extract_years
 from src.detection.support_scorer import SupportScorer
+from src.detection.nli_verifier import NLIVerifier
 from src.evaluation.metrics import CRITICAL_UNSUPPORTED_FLAGS, HallucinationMetrics
 from src.generation.base_answer import BaseAnswerGenerator
 from src.generation.correction import AnswerCorrector
@@ -19,7 +20,7 @@ from src.utils.text_cleaning import normalize_for_detection, remove_display_cita
 class HallucinationRAGPipeline:
     """End-to-end pipeline for retrieval-grounded hallucination detection."""
 
-    def __init__(self, retrieval_mode: str | None = None) -> None:
+    def __init__(self, retrieval_mode: str | None = None, enable_nli: bool | None = None) -> None:
         self.logger = get_logger("pipeline")
         shared_embedder = EmbeddingModel()
         shared_ollama_client = OllamaClient()
@@ -32,7 +33,10 @@ class HallucinationRAGPipeline:
 
         self.generator = BaseAnswerGenerator(client=shared_ollama_client)
         self.corrector = AnswerCorrector(client=shared_ollama_client)
-        self.detector = HallucinationDetector(support_scorer=SupportScorer(embedder=shared_embedder))
+        self.detector = HallucinationDetector(
+            support_scorer=SupportScorer(embedder=shared_embedder),
+            nli_verifier=NLIVerifier(enabled=enable_nli),
+        )
         self.retrieval_mode = mode
         self.answerability_threshold = float(
             get_config_value("settings", "retrieval", "answerability_threshold", default=0.45)
@@ -250,7 +254,7 @@ class HallucinationRAGPipeline:
             "metrics": metrics,
         }
 
-    def run(self, query: str, top_k: int | None = None) -> Dict[str, Any]:
+    def run(self, query: str, top_k: int | None = None, correction_enabled: bool = True) -> Dict[str, Any]:
         query = query.strip()
         if not query:
             raise ValueError("Query must not be empty.")
@@ -280,14 +284,24 @@ class HallucinationRAGPipeline:
             warnings.append("llm_generation_failed")
 
         raw_detection = self.detector.detect(raw_answer, evidence)
-        corrected_answer_cited = self.corrector.correct(query, raw_answer, evidence)
-        corrected_answer = remove_display_citations(corrected_answer_cited)
-        corrected_detection = self.detector.detect(corrected_answer, evidence)
 
-        repaired_answer, repaired, removed = self._repair_corrected_answer(corrected_answer, corrected_detection, query)
-        if repaired:
-            corrected_answer = repaired_answer
+        if not correction_enabled:
+            corrected_answer_cited = raw_answer
+            corrected_answer = raw_answer
+            corrected_detection = raw_detection
+            repaired = False
+            removed: List[Dict[str, Any]] = []
+            if "correction_disabled" not in warnings:
+                warnings.append("correction_disabled")
+        else:
+            corrected_answer_cited = self.corrector.correct(query, raw_answer, evidence)
+            corrected_answer = remove_display_citations(corrected_answer_cited)
             corrected_detection = self.detector.detect(corrected_answer, evidence)
+
+            repaired_answer, repaired, removed = self._repair_corrected_answer(corrected_answer, corrected_detection, query)
+            if repaired:
+                corrected_answer = repaired_answer
+                corrected_detection = self.detector.detect(corrected_answer, evidence)
 
         metrics = HallucinationMetrics.summarize(raw_detection, corrected_detection)
 

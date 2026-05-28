@@ -1,6 +1,6 @@
 # Hallucination Detection and Correction in LLMs using RAG
 
-A lightweight M.Tech final-year project that demonstrates how to detect and correct unsupported claims in LLM answers using retrieval-augmented generation (RAG).
+Project that demonstrates how to detect and correct unsupported claims in LLM answers using retrieval-augmented generation (RAG).
 
 ## What this project does
 
@@ -377,3 +377,70 @@ python scripts/package_project.py --output hallucination-rag-clean.zip
 The Streamlit UI now shows retrieved evidence separately as evidence cards. The user-facing corrected answer is intentionally clean and does not include inline `[Evidence-*]` citation markers. Evidence IDs remain available as metadata and in the retrieved-evidence panel. Detection, factual consistency checks, NLI verification, and metrics strip citations before scoring so citation numbers are never treated as factual numbers.
 
 Correction success is conservative: a result is marked as successful only when safety checks pass, hallucination does not increase, and at least one corrected claim is strongly supported. If the corrected answer is mostly weakly supported, the status is partial rather than a strong success.
+
+## REFIND-inspired research evaluation mode
+
+REFIND is the base research direction for this project, but this repository does not claim to reproduce REFIND's exact Context Sensitivity Ratio (CSR) method. Exact CSR requires token-level probabilities with and without retrieved context, while the current local generation backend uses Ollama and does not expose reliable token log probabilities for this workflow. Instead, the project implements a practical REFIND-inspired pipeline:
+
+- retrieval-augmented evidence grounding
+- claim-level support verification
+- factual consistency checks for years, numbers, entities, acronyms, and definitions
+- optional NLI verification
+- span-level hallucination highlighting
+- corrected-answer re-verification
+
+The span highlighter supports REFIND-style evaluation through character-level span IoU. Predicted hallucinated spans are compared with gold spans in the evaluation JSONL file.
+
+### Final evaluation dataset
+
+A lightweight final benchmark is provided at:
+
+```bash
+data/evaluation/final_eval_set.jsonl
+```
+
+It contains examples across RAG, ColBERT, TruthfulQA, hallucination causes, vehicle safety, smartphones, and AI newsrooms. Each record contains:
+
+- query
+- expected_answer_type
+- gold_supported_claims
+- gold_unsupported_claims
+- gold_hallucinated_spans
+- expected_evidence_keywords
+
+This dataset is intentionally small and local-friendly. It is suitable for M.Tech reporting and ablation experiments, but a larger manually labeled dataset is still required for strong journal-level claims.
+
+### Run final evaluation
+
+After ingestion and indexing:
+
+```bash
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+python scripts/run_final_evaluation.py
+```
+
+Ablation examples:
+
+```bash
+python scripts/run_final_evaluation.py --retrieval dense --nli off --correction on
+python scripts/run_final_evaluation.py --retrieval hybrid --nli off --correction on
+python scripts/run_final_evaluation.py --retrieval hybrid --nli on --correction on
+python scripts/run_final_evaluation.py --retrieval hybrid --nli off --correction off
+```
+
+Outputs are written to:
+
+```bash
+results/final_eval_results_<mode>.csv
+results/final_eval_summary_<mode>.json
+```
+
+The summary includes approximate precision, recall, F1, average span IoU, average support score, hallucination reduction, correction success rate, and evidence keyword hit rate.
+
+### Research limitations
+
+- Exact REFIND CSR is not implemented because Ollama does not expose reliable token probability comparisons.
+- NLI is optional and should remain selective on low-resource hardware.
+- The included final evaluation dataset is a scaffold, not a large benchmark.
+- For publication, expand the evaluation set and report ablations across dense retrieval, hybrid retrieval, NLI, and correction.
