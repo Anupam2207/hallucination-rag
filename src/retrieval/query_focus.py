@@ -118,15 +118,19 @@ def topical_score(text: str, metadata: Dict[str, Any] | None, focus: Dict[str, A
         str((metadata or {}).get("file_name", "")),
         str((metadata or {}).get("document_title", "")),
         str((metadata or {}).get("section_name", "")),
+        str((metadata or {}).get("source_rel", "")),
     ]))
     alias_groups = focus.get("alias_groups") or {}
     core_terms = set(focus.get("core_entity_terms") or [])
     if not alias_groups and not core_terms:
         return 0.5
 
-    for aliases in alias_groups.values():
-        if _contains_alias(text_norm, aliases):
-            return 1.0
+    # For known entities/acronyms, require the canonical alias or one of its
+    # explicit aliases to appear.  Do not let a generic token inside an alias
+    # satisfy the entity match.  Example: a RAG query should not match a
+    # ColBERT chunk only because that chunk contains the word "retrieval".
+    if alias_groups:
+        return 1.0 if any(_contains_alias(text_norm, aliases) for aliases in alias_groups.values()) else 0.0
 
     text_tokens = set(tokenize(text_norm))
     if core_terms:

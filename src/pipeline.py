@@ -8,11 +8,18 @@ from src.detection.support_scorer import SupportScorer
 from src.detection.nli_verifier import NLIVerifier
 from src.evaluation.metrics import CRITICAL_UNSUPPORTED_FLAGS, HallucinationMetrics
 from src.generation.base_answer import BaseAnswerGenerator
-from src.generation.correction import AnswerCorrector
+from src.generation.correction import AnswerCorrector, INSUFFICIENT_EVIDENCE_RESPONSE
 from src.generation.ollama_client import OllamaClient, OllamaServiceError
 from src.logger import get_logger
 from src.retrieval.embedder import EmbeddingModel
+from src.retrieval.evidence_intent import (
+    FACTUAL,
+    annotate_evidence_list,
+    is_credible_support_evidence,
+    is_strict_factual_query,
+)
 from src.retrieval.hybrid_retriever import HybridRetriever
+from src.retrieval.query_focus import extract_query_focus, has_topical_match
 from src.retrieval.retriever import SemanticRetriever
 from src.utils.text_cleaning import normalize_for_detection, remove_display_citations
 
@@ -44,8 +51,9 @@ class HallucinationRAGPipeline:
 
     @staticmethod
     def _evidence_strength(item: Dict[str, Any]) -> float:
-        # Hybrid final_score is already normalized to 0..1-ish. Prefer it.
-        for key in ("final_score", "weighted_score", "dense_similarity", "similarity"):
+        # Credibility is preferred over raw retrieval score because it includes
+        # intent, source authority, factual assertions, and example penalties.
+        for key in ("evidence_credibility_score", "final_score", "weighted_score", "dense_similarity", "similarity"):
             value = item.get(key)
             if value is not None:
                 try:
@@ -59,10 +67,38 @@ class HallucinationRAGPipeline:
             return 0.0
 
     @classmethod
-    def _is_answerable_by_score(cls, evidence: List[Dict[str, Any]], threshold: float) -> bool:
+    def _is_answerable_by_score(
+        cls,
+        evidence: List[Dict[str, Any]],
+        threshold: float,
+        strict_factual_mode: bool = False,
+    ) -> bool:
         if not evidence:
             return False
-        return max(cls._evidence_strength(item) for item in evidence) >= threshold
+        annotated = annotate_evidence_list(evidence)
+        credible = [
+            item for item in annotated
+            if is_credible_support_evidence(item, min_credibility=0.20, strict_factual_mode=strict_factual_mode)
+        ]
+        if not credible:
+            return False
+        if strict_factual_mode and not any(item.get("evidence_type") == FACTUAL for item in credible):
+            return False
+        return max(cls._evidence_strength(item) for item in credible) >= threshold
+
+    @classmethod
+    def _aggregate_evidence_confidence(cls, evidence: List[Dict[str, Any]]) -> float:
+        if not evidence:
+            return 0.0
+        return round(max(cls._evidence_strength(item) for item in evidence), 4)
+
+    @staticmethod
+    def _answer_confidence(evidence_confidence: float, detection: Dict[str, Any]) -> float:
+        try:
+            support = float(detection.get("average_support_score", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            support = 0.0
+        return round(max(0.0, min(1.0, evidence_confidence, support)), 4)
 
     @staticmethod
     def _combined_evidence_text(evidence: List[Dict[str, Any]]) -> str:
@@ -83,7 +119,22 @@ class HallucinationRAGPipeline:
     @staticmethod
     def _specific_fact_supported_by_evidence(query: str, evidence: List[Dict[str, Any]]) -> tuple[bool, str | None]:
         clean_query = normalize_for_detection(query)
-        evidence_text = normalize_for_detection(HallucinationRAGPipeline._combined_evidence_text(evidence))
+        strict_mode = is_strict_factual_query(query)
+        annotated = annotate_evidence_list(evidence, query=query)
+        credible = [
+            item for item in annotated
+            if is_credible_support_evidence(item, min_credibility=0.20, strict_factual_mode=strict_mode)
+        ]
+        if strict_mode:
+            focus = extract_query_focus(query)
+            credible = [
+                item for item in credible
+                if item.get("evidence_type") == FACTUAL
+                and has_topical_match(str(item.get("text", "")), item.get("metadata", {}) or {}, focus)
+            ]
+            if not credible:
+                return False, "insufficient_evidence_for_specific_fact"
+        evidence_text = normalize_for_detection(HallucinationRAGPipeline._combined_evidence_text(credible))
         query_years = set(extract_years(clean_query))
         evidence_years = set(extract_years(evidence_text))
         query_dates = set(extract_dates(clean_query))
@@ -228,8 +279,10 @@ class HallucinationRAGPipeline:
 
         if kept_sentences:
             repaired = " ".join(kept_sentences).strip()
+            if AnswerCorrector._is_malformed_answer(repaired):
+                repaired = INSUFFICIENT_EVIDENCE_RESPONSE
         else:
-            repaired = "Insufficient evidence available in the knowledge base to provide a supported corrected answer."
+            repaired = INSUFFICIENT_EVIDENCE_RESPONSE
         return repaired, True, removed
 
     def _safe_return(self, query: str, evidence: List[Dict[str, Any]], warnings: List[str], status: str) -> Dict[str, Any]:
@@ -239,8 +292,12 @@ class HallucinationRAGPipeline:
         return {
             "query": query,
             "retrieval_mode": self.retrieval_mode,
+            "strict_factual_mode": is_strict_factual_query(query),
             "answerable": False,
             "answerability_status": status,
+            "evidence_confidence": self._aggregate_evidence_confidence(evidence),
+            "raw_answer_confidence": 0.0,
+            "corrected_answer_confidence": 0.0,
             "warnings": warnings,
             "evidence": evidence,
             "raw_answer": safe_response,
@@ -260,14 +317,23 @@ class HallucinationRAGPipeline:
             raise ValueError("Query must not be empty.")
 
         warnings: List[str] = []
-        evidence = self._add_evidence_ids(self.retriever.retrieve(query, top_k=top_k))
+        strict_factual_mode = is_strict_factual_query(query)
+        retrieved = self.retriever.retrieve(query, top_k=top_k)
+        evidence = self._add_evidence_ids(annotate_evidence_list(retrieved, query=query))
         if not evidence:
             warnings.append("No evidence was retrieved. Build the index or expand the knowledge base for better results.")
 
-        answerable_by_score = self._is_answerable_by_score(evidence, self.answerability_threshold)
+        evidence_confidence = self._aggregate_evidence_confidence(evidence)
+        answerable_by_score = self._is_answerable_by_score(
+            evidence,
+            self.answerability_threshold,
+            strict_factual_mode=strict_factual_mode,
+        )
         specific_supported, specific_warning = self._specific_fact_supported_by_evidence(query, evidence)
         if specific_warning:
             warnings.append(specific_warning)
+        if not answerable_by_score:
+            warnings.append("no_factual_or_credible_evidence")
 
         if not answerable_by_score:
             if "insufficient_evidence" not in warnings:
@@ -303,13 +369,26 @@ class HallucinationRAGPipeline:
                 corrected_answer = repaired_answer
                 corrected_detection = self.detector.detect(corrected_answer, evidence)
 
+            if AnswerCorrector._is_malformed_answer(corrected_answer):
+                corrected_answer = INSUFFICIENT_EVIDENCE_RESPONSE
+                corrected_answer_cited = INSUFFICIENT_EVIDENCE_RESPONSE
+                corrected_detection = self._empty_detection()
+                repaired = True
+                warnings.append("malformed_corrected_answer_replaced")
+
         metrics = HallucinationMetrics.summarize(raw_detection, corrected_detection)
+        raw_answer_confidence = self._answer_confidence(evidence_confidence, raw_detection)
+        corrected_answer_confidence = self._answer_confidence(evidence_confidence, corrected_detection)
 
         return {
             "query": query,
             "retrieval_mode": self.retrieval_mode,
+            "strict_factual_mode": strict_factual_mode,
             "answerable": True,
             "answerability_status": "answerable",
+            "evidence_confidence": evidence_confidence,
+            "raw_answer_confidence": raw_answer_confidence,
+            "corrected_answer_confidence": corrected_answer_confidence,
             "warnings": warnings,
             "evidence": evidence,
             "raw_answer": raw_answer,

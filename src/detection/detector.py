@@ -75,6 +75,7 @@ class HallucinationDetector:
             "open_source_library_not_in_evidence",
             "ecommerce_not_in_evidence",
             "product_review_not_in_evidence",
+            "no_factual_evidence",
         }
 
     @staticmethod
@@ -91,8 +92,18 @@ class HallucinationDetector:
         if adjusted_label == "contradiction":
             return 0.0
         if adjusted_label == "neutral":
-            return 0.5
-        return 0.5
+            # Neutral is not support, but it is not a contradiction either.
+            return float(scores.get("entailment", 0.35))
+        return 0.0
+
+    @staticmethod
+    def _confidence_cap(evidence_confidence: float | None) -> float:
+        if evidence_confidence is None:
+            return 1.0
+        confidence = max(0.0, min(1.0, float(evidence_confidence)))
+        if confidence <= 0.0:
+            return 0.0
+        return max(0.35, min(1.0, 0.35 + 0.65 * confidence))
 
     def _adjust_nli_label(
         self,
@@ -129,6 +140,9 @@ class HallucinationDetector:
         claim: str,
         evidence: str,
         factual_exact_match: bool = False,
+        semantic_score: float | None = None,
+        lexical_score: float | None = None,
+        evidence_confidence: float | None = None,
     ) -> tuple[str, float, list[str], str | None, str | None, float | None]:
         fused_flags = list(dict.fromkeys(rule_flags))
         final_score = float(score)
@@ -158,7 +172,11 @@ class HallucinationDetector:
                     fused_flags.append("nli_contradiction")
                 return "unsupported", min(final_score, 0.20), fused_flags, adjusted_label, adjustment_reason, None
 
-        if factual_exact_match and not any(flag in self.critical_rule_flags() for flag in fused_flags):
+        if (
+            factual_exact_match
+            and adjusted_label not in {"entailment", "neutral"}
+            and not any(flag in self.critical_rule_flags() for flag in fused_flags)
+        ):
             return "supported", max(final_score, 0.72), fused_flags, adjusted_label, adjustment_reason, None
 
         if any(flag in self.critical_rule_flags() for flag in fused_flags):
@@ -178,10 +196,19 @@ class HallucinationDetector:
         composite_score: float | None = None
         if adjusted_label in {"entailment", "neutral"}:
             nli_support = self._nli_support_value(adjusted_label, nli_result)
-            # Evidence support is the capped similarity/rule score; raw similarity
-            # keeps the original semantic support signal. This mirrors the research
-            # formula while remaining backward-compatible with the existing labels.
-            composite_score = round(0.4 * raw_similarity_score + 0.4 * score + 0.2 * nli_support, 4)
+            semantic_component = max(0.0, min(1.0, float(semantic_score if semantic_score is not None else raw_similarity_score)))
+            if lexical_score is None:
+                lexical_component = self.scorer.lexical_overlap_score(claim, evidence)
+            else:
+                lexical_component = float(lexical_score)
+            lexical_component = max(0.0, min(1.0, lexical_component))
+
+            # FinalSupport = 0.30 semantic + 0.25 lexical + 0.45 entailment.
+            composite_score = round(
+                0.30 * semantic_component + 0.25 * lexical_component + 0.45 * nli_support,
+                4,
+            )
+            composite_score = round(min(composite_score, self._confidence_cap(evidence_confidence)), 4)
             label = self._label_from_similarity(composite_score)
             if adjusted_label == "entailment" and nli_score is not None and nli_score >= self.nli_entailment_threshold:
                 label = "supported" if composite_score >= self.warning_threshold else "weak_support"
@@ -190,14 +217,21 @@ class HallucinationDetector:
                 # not downgrade a citation-clean, high-similarity, rule-clean claim
                 # solely because NLI is neutral. Keep the NLI signal visible, but
                 # let strong retrieved evidence remain supported.
-                if raw_similarity_score >= 0.75 and score >= self.support_threshold:
+                if raw_similarity_score >= 0.75 and score >= self.support_threshold and evidence_confidence is not None and evidence_confidence >= self.support_threshold:
                     label = "supported"
+                    composite_score = max(composite_score, min(score, self._confidence_cap(evidence_confidence)))
+                elif raw_similarity_score >= 0.75 and score >= self.support_threshold and evidence_confidence is None:
+                    label = "supported"
+                    composite_score = max(composite_score, score)
                 elif label == "supported":
                     label = "weak_support"
                 if "nli_neutral" not in fused_flags:
                     fused_flags.append("nli_neutral")
             return label, composite_score, fused_flags, adjusted_label, adjustment_reason, composite_score
 
+        if evidence_confidence is not None:
+            final_score = min(final_score, self._confidence_cap(evidence_confidence))
+            similarity_label = self._label_from_similarity(final_score)
         return similarity_label, final_score, fused_flags, adjusted_label, adjustment_reason, composite_score
 
     def detect(self, answer: str, evidence_list: list[Any]) -> dict:
@@ -210,13 +244,15 @@ class HallucinationDetector:
             raw_similarity_score = float(score_info.get("raw_similarity_score") or score)
             best_index = score_info["best_evidence_index"]
             best_evidence_text = score_info.get("best_evidence") or ""
+            combined_evidence_text = score_info.get("combined_evidence") or ""
+            nli_evidence_text = combined_evidence_text or best_evidence_text
             rule_flags = list(score_info.get("rule_flags", []))
 
             similarity_label = self._label_from_similarity(score)
-            if getattr(self.nli_verifier, "enabled", False) and (raw_similarity_score >= self.nli_min_similarity_to_run or rule_flags):
+            if getattr(self.nli_verifier, "enabled", False) and nli_evidence_text.strip():
                 nli_result = self.nli_verifier.verify(
                     normalize_for_detection(claim),
-                    normalize_for_detection(best_evidence_text),
+                    normalize_for_detection(nli_evidence_text),
                 )
             else:
                 nli_result = {
@@ -234,8 +270,11 @@ class HallucinationDetector:
                 rule_flags,
                 nli_result,
                 normalize_for_detection(claim),
-                normalize_for_detection(best_evidence_text),
+                normalize_for_detection(nli_evidence_text),
                 bool(score_info.get("factual_exact_match")),
+                float(score_info.get("semantic_score", raw_similarity_score) or 0.0),
+                float(score_info.get("lexical_score", 0.0) or 0.0),
+                float(score_info.get("evidence_confidence", raw_similarity_score) or 0.0),
             )
             span_result = highlight_hallucinated_spans(claim, best_evidence_text, fused_flags)
 
@@ -244,11 +283,17 @@ class HallucinationDetector:
                     "claim": claim,
                     "support_score": round(float(final_score), 4),
                     "raw_similarity_score": score_info.get("raw_similarity_score"),
+                    "semantic_score": score_info.get("semantic_score"),
+                    "lexical_score": score_info.get("lexical_score"),
                     "composite_support_score": composite_score,
+                    "evidence_confidence": score_info.get("evidence_confidence"),
                     "label": final_label,
                     "similarity_label": similarity_label,
                     "best_evidence_index": best_index,
                     "best_evidence_text": best_evidence_text,
+                    "nli_evidence_text": nli_evidence_text,
+                    "combined_evidence_indices": score_info.get("combined_evidence_indices"),
+                    "combined_evidence_types": score_info.get("combined_evidence_types"),
                     "rule_flags": fused_flags,
                     "factual_consistency": score_info.get("factual_consistency"),
                     "nli_label": nli_result.get("label"),

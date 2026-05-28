@@ -144,7 +144,7 @@ def clean_malformed_lists(text: str) -> str:
     cleaned = re.sub(r"\s+(\d+)[\).]\s+(?=[A-Z])", r"\n\1. ", cleaned)
     # Remove empty/dangling numeric markers such as `2. 3.` or final `1.`.
     cleaned = re.sub(r"(?:^|\n)\s*\d+[\).]\s*(?=\n|$)", "\n", cleaned)
-    cleaned = re.sub(r"\s+\d+[\).]\s*(?=\d+[\).]|$)", " ", cleaned)
+    cleaned = re.sub(r"\s+\d{1,2}[\).]\s*(?=\d{1,2}[\).]|$)", " ", cleaned)
     # Remove remaining inline list markers, e.g. "item one 3. item two".
     cleaned = re.sub(r"\s+\d+[\).]\s+(?=[A-Z])", " ", cleaned)
     cleaned = re.sub(r"(can|include|including|as follows):\s*\d+[\).]?\s*$", r"\1:", cleaned, flags=re.IGNORECASE)

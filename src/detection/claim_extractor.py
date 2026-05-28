@@ -53,8 +53,9 @@ class ClaimExtractor:
             text
         )
         # Remove dangling list markers created by LLM numbered lists, e.g.
-        # "... can: 1." or "Improve accuracy 2."
-        text = re.sub(r"\s+\d+[\).]?\s*$", "", text)
+        # "... can: 1." or "Improve accuracy 2."  Do not strip four-digit
+        # factual years such as 2001 or 2020 from claims.
+        text = re.sub(r"\s+\d{1,2}[\).]\s*$", "", text)
 
         return text.strip()
 

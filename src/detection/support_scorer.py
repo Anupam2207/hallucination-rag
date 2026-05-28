@@ -9,6 +9,11 @@ from src.detection.factual_consistency import (
     run_factual_consistency_checks,
 )
 from src.retrieval.embedder import EmbeddingModel
+from src.retrieval.evidence_intent import (
+    FACTUAL,
+    annotate_evidence,
+    is_credible_support_evidence,
+)
 from src.utils.text_cleaning import normalize_for_detection
 
 
@@ -169,7 +174,7 @@ class SupportScorer:
 
         return min(score, 0.35), flags, factual_result
 
-    def _score_text_pair(self, clean_claim: str, clean_evidence: str, claim_embedding=None) -> tuple[float, float]:
+    def _score_text_pair(self, clean_claim: str, clean_evidence: str, claim_embedding=None) -> tuple[float, float, float]:
         exact_score = self._exact_support_score(clean_claim, clean_evidence)
         lexical_score = self.lexical_overlap_score(clean_claim, clean_evidence)
         if claim_embedding is None:
@@ -179,7 +184,7 @@ class SupportScorer:
         hybrid_score = max(semantic_score, exact_score)
         if lexical_score >= 0.55:
             hybrid_score = max(hybrid_score, lexical_score)
-        return hybrid_score, semantic_score
+        return hybrid_score, semantic_score, lexical_score
 
 
     @staticmethod
@@ -209,48 +214,89 @@ class SupportScorer:
                 return False
         return bool(claim_years or claim_entities) and score >= 0.45
 
-    def _score_claim_internal(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
-        if not claim.strip() or not evidence_list:
-            return {
-                "claim": claim,
-                "score": 0.0,
-                "raw_similarity_score": 0.0,
-                "best_evidence_index": None,
-                "best_evidence": None,
-                "rule_flags": [],
-                "factual_consistency": {"flags": [], "details": {}},
-                "best_single_score": 0.0,
-                "combined_context_score": 0.0,
-                "used_combined_evidence": False,
-                "factual_exact_match": False,
-            }
+    @staticmethod
+    def _rank_evidence_for_support(item: dict[str, Any]) -> tuple[float, float, float]:
+        def as_float(key: str) -> float:
+            try:
+                return float(item.get(key, 0.0) or 0.0)
+            except (TypeError, ValueError):
+                return 0.0
 
-        evidence_texts = [self._extract_text(item) for item in evidence_list]
-        evidence_texts = [text for text in evidence_texts if text.strip()]
-        if not evidence_texts:
-            return {
-                "claim": claim,
-                "score": 0.0,
-                "raw_similarity_score": 0.0,
-                "best_evidence_index": None,
-                "best_evidence": None,
-                "rule_flags": [],
-                "factual_consistency": {"flags": [], "details": {}},
-                "best_single_score": 0.0,
-                "combined_context_score": 0.0,
-                "used_combined_evidence": False,
-                "factual_exact_match": False,
-            }
+        return (
+            as_float("evidence_credibility_score"),
+            as_float("final_score"),
+            as_float("factual_assertion_score"),
+        )
+
+    def _prepare_support_evidence(self, evidence_list: list[Any]) -> list[tuple[int, dict[str, Any], str]]:
+        prepared: list[tuple[int, dict[str, Any], str]] = []
+        for original_index, raw_item in enumerate(evidence_list):
+            if isinstance(raw_item, dict):
+                item = dict(raw_item)
+                if "evidence_type" not in item or "evidence_credibility_score" not in item:
+                    item = annotate_evidence(item)
+                text = self._extract_text(item).strip()
+            else:
+                text = self._extract_text(raw_item).strip()
+                item = annotate_evidence({"text": text, "metadata": {}})
+            if not text:
+                continue
+            if not is_credible_support_evidence(item, min_credibility=0.15):
+                continue
+            prepared.append((original_index, item, text))
+        prepared.sort(key=lambda entry: self._rank_evidence_for_support(entry[1]), reverse=True)
+        return prepared
+
+    def _select_combined_support_items(
+        self,
+        prepared: list[tuple[int, dict[str, Any], str]],
+        limit: int = 3,
+    ) -> list[tuple[int, dict[str, Any], str]]:
+        factual = [entry for entry in prepared if entry[1].get("evidence_type") == FACTUAL]
+        source = factual if factual else prepared
+        return source[: max(1, limit)]
+
+    def _score_claim_internal(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
+        empty_result = {
+            "claim": claim,
+            "score": 0.0,
+            "raw_similarity_score": 0.0,
+            "semantic_score": 0.0,
+            "lexical_score": 0.0,
+            "best_evidence_index": None,
+            "best_evidence": None,
+            "rule_flags": [],
+            "factual_consistency": {"flags": [], "details": {}},
+            "best_single_score": 0.0,
+            "combined_context_score": 0.0,
+            "combined_evidence": "",
+            "combined_evidence_indices": [],
+            "combined_evidence_types": [],
+            "used_combined_evidence": False,
+            "factual_exact_match": False,
+            "evidence_confidence": 0.0,
+            "no_factual_evidence": True,
+        }
+        if not claim.strip() or not evidence_list:
+            return dict(empty_result)
+
+        prepared = self._prepare_support_evidence(evidence_list)
+        if not prepared:
+            result = dict(empty_result)
+            result["rule_flags"] = ["no_factual_evidence"]
+            return result
 
         clean_claim = normalize_for_detection(claim)
+        evidence_texts = [entry[2] for entry in prepared]
         clean_evidence_texts = [normalize_for_detection(text) for text in evidence_texts]
         claim_embedding = self.embedder.encode([clean_claim])
         evidence_embeddings = self.embedder.encode(clean_evidence_texts)
         similarities = cosine_similarity(claim_embedding, evidence_embeddings)[0]
 
         best_score = 0.0
-        best_raw_score = 0.0
-        best_index: int | None = None
+        best_semantic_score = 0.0
+        best_lexical_score = 0.0
+        best_prepared_index: int | None = None
         for index, semantic_score in enumerate(similarities):
             lexical_score = self.lexical_overlap_score(clean_claim, clean_evidence_texts[index])
             exact_score = self._exact_support_score(clean_claim, clean_evidence_texts[index])
@@ -259,48 +305,90 @@ class SupportScorer:
                 hybrid_score = max(hybrid_score, lexical_score)
             if hybrid_score > best_score:
                 best_score = hybrid_score
-                best_raw_score = hybrid_score
-                best_index = index
+                best_semantic_score = float(semantic_score)
+                best_lexical_score = float(lexical_score)
+                best_prepared_index = index
 
-        combined_text = " ".join(clean_evidence_texts[: min(5, len(clean_evidence_texts))])[:4000]
+        combined_items = self._select_combined_support_items(prepared, limit=3)
+        combined_text = " ".join(normalize_for_detection(entry[2]) for entry in combined_items)[:4000]
         combined_score = 0.0
+        combined_semantic_score = 0.0
+        combined_lexical_score = 0.0
         if combined_text:
-            # For combined context, prefer lexical/exact support to avoid excessive
-            # embedding calls and to reward claims grounded across multiple chunks.
-            combined_score = max(
-                self._exact_support_score(clean_claim, combined_text),
-                self.lexical_overlap_score(clean_claim, combined_text),
-            )
+            # Combined verification is explicitly limited to the top factual
+            # chunks when available, preventing examples/tutorials from leaking
+            # into support decisions.
+            exact_combined = self._exact_support_score(clean_claim, combined_text)
+            combined_lexical_score = self.lexical_overlap_score(clean_claim, combined_text)
+            combined_score = max(exact_combined, combined_lexical_score)
             if combined_score < 0.55:
-                combined_pair_score, _ = self._score_text_pair(clean_claim, combined_text, claim_embedding=claim_embedding)
+                combined_pair_score, combined_semantic_score, combined_pair_lexical = self._score_text_pair(
+                    clean_claim,
+                    combined_text,
+                    claim_embedding=claim_embedding,
+                )
                 combined_score = max(combined_score, combined_pair_score)
+                combined_lexical_score = max(combined_lexical_score, combined_pair_lexical)
+            else:
+                # Still compute the semantic component once for the final support
+                # formula when lexical/exact support already shows grounding.
+                _, combined_semantic_score, _ = self._score_text_pair(
+                    clean_claim,
+                    combined_text,
+                    claim_embedding=claim_embedding,
+                )
 
         used_combined = combined_score > best_score
         raw_support_score = max(best_score, combined_score)
-        best_evidence = evidence_texts[best_index] if best_index is not None else ""
-        best_evidence_clean = clean_evidence_texts[best_index] if best_index is not None else ""
+        best_evidence = evidence_texts[best_prepared_index] if best_prepared_index is not None else ""
+        best_evidence_clean = clean_evidence_texts[best_prepared_index] if best_prepared_index is not None else ""
+        best_original_index = prepared[best_prepared_index][0] if best_prepared_index is not None else None
+        evidence_for_rules = combined_text if used_combined and combined_text else best_evidence_clean
         capped_score, flags, factual_result = self._apply_rule_caps(
             clean_claim,
             clean_evidence_texts,
-            best_evidence_clean,
+            evidence_for_rules,
             raw_support_score,
         )
-        factual_exact_match = self._factual_exact_match(clean_claim, best_evidence_clean, raw_support_score, flags)
+        factual_exact_match = self._factual_exact_match(clean_claim, evidence_for_rules, raw_support_score, flags)
         if factual_exact_match:
             capped_score = max(capped_score, 0.72)
+
+        selected_confidences: list[float] = []
+        for entry in combined_items:
+            try:
+                selected_confidences.append(float(entry[1].get("evidence_credibility_score", 0.0) or 0.0))
+            except (TypeError, ValueError):
+                selected_confidences.append(0.0)
+        if best_prepared_index is not None:
+            try:
+                selected_confidences.append(float(prepared[best_prepared_index][1].get("evidence_credibility_score", 0.0) or 0.0))
+            except (TypeError, ValueError):
+                pass
+        evidence_confidence = max([raw_support_score, *selected_confidences], default=0.0)
+
+        semantic_component = max(best_semantic_score, combined_semantic_score)
+        lexical_component = max(best_lexical_score, combined_lexical_score)
 
         return {
             "claim": claim,
             "score": round(float(capped_score), 4),
             "raw_similarity_score": round(float(raw_support_score), 4),
-            "best_evidence_index": best_index,
+            "semantic_score": round(float(semantic_component), 4),
+            "lexical_score": round(float(lexical_component), 4),
+            "best_evidence_index": best_original_index,
             "best_evidence": best_evidence,
             "rule_flags": flags,
             "factual_consistency": factual_result,
             "best_single_score": round(float(best_score), 4),
             "combined_context_score": round(float(combined_score), 4),
+            "combined_evidence": " ".join(entry[2] for entry in combined_items),
+            "combined_evidence_indices": [entry[0] for entry in combined_items],
+            "combined_evidence_types": [entry[1].get("evidence_type") for entry in combined_items],
             "used_combined_evidence": bool(used_combined),
             "factual_exact_match": bool(factual_exact_match),
+            "evidence_confidence": round(float(max(0.0, min(1.0, evidence_confidence))), 4),
+            "no_factual_evidence": not any(entry[1].get("evidence_type") == FACTUAL for entry in prepared),
         }
 
     def score_claim(self, claim: str, evidence_list: list[Any]) -> tuple[float, int | None]:

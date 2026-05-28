@@ -2,6 +2,8 @@ from typing import Any, Dict, List
 
 from src.config import load_all_configs
 from src.retrieval.embedder import EmbeddingModel
+from src.retrieval.evidence_intent import annotate_evidence, is_strict_factual_query, rank_key
+from src.retrieval.query_focus import extract_query_focus, topical_score
 from src.retrieval.vector_store import ChromaVectorStore
 
 
@@ -30,6 +32,10 @@ class SemanticRetriever:
         if not query.strip() or not self.is_ready():
             return []
 
+        focus = extract_query_focus(query)
+        focus_terms = list(focus.get("core_entity_terms") or [])
+        must_match_topic = bool(focus.get("alias_groups")) or is_strict_factual_query(query)
+
         # Convert the query into a dense embedding for semantic search.
         query_embedding = self.embedder.encode([query])[0]
         if hasattr(query_embedding, "tolist"):
@@ -50,16 +56,26 @@ class SemanticRetriever:
         ):
             distance_value = float(distance) if distance is not None else None
             similarity = None if distance_value is None else max(0.0, 1.0 - distance_value)
-            normalized_results.append(
-                {
-                    "chunk_id": doc_id,
-                    "text": document,
-                    "metadata": metadata or {},
-                    "distance": distance_value,
-                    "similarity": similarity,
-                    "dense_rank": rank,
-                    "dense_similarity": similarity,
-                    "retrieval_method": "dense",
-                }
-            )
+            item = {
+                "chunk_id": doc_id,
+                "text": document,
+                "metadata": metadata or {},
+                "distance": distance_value,
+                "similarity": similarity,
+                "dense_rank": rank,
+                "dense_similarity": similarity,
+                "base_final_score": similarity,
+                "final_score": similarity,
+                "retrieval_method": "dense",
+            }
+            topical = topical_score(document, metadata or {}, focus)
+            if must_match_topic and focus_terms and topical <= 0.0:
+                continue
+            item["topical_score"] = round(float(topical), 6)
+            item = annotate_evidence(item, query=query)
+            if item.get("rejected_by_strict_factual_mode"):
+                continue
+            normalized_results.append(item)
+        strict_factual_mode = is_strict_factual_query(query)
+        normalized_results.sort(key=lambda item: rank_key(item, strict_factual_mode=strict_factual_mode), reverse=True)
         return normalized_results

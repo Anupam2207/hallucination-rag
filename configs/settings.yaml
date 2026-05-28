@@ -40,7 +40,7 @@ retrieval:
 detection:
   similarity_support_threshold: 0.70
   similarity_warning_threshold: 0.45
-  enable_nli: false
+  enable_nli: true
   nli_entailment_threshold: 0.6
   nli_contradiction_threshold: 0.6
   nli_neutral_threshold: 0.65
@@ -57,17 +57,19 @@ runtime:
   max_nli_workers: 1
 
 verification:
-  enable_nli: false
+  enable_nli: true
   nli_model: "cross-encoder/nli-deberta-v3-small"
   nli_device: "cpu"
   nli_max_evidence_chars: 900
-  nli_min_similarity_to_run: 0.35
+  nli_min_similarity_to_run: 0.0
+  nli_label_order: ["contradiction", "entailment", "neutral"]
   nli_cache_enabled: true
   nli_contradiction_relevance_threshold: 0.35
 knowledge_base:
   mode: demo
   include_research_pdfs: false
   clean_pdf_keywords:
+    - Lewis_RAG
     - fact_verification
     - colbert_retrieval_model
     - causes_of_hallucination

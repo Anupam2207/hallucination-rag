@@ -2,6 +2,8 @@ import re
 from typing import Any, Dict, List
 
 from src.config import get_config_value
+from src.retrieval.evidence_intent import annotate_evidence, is_strict_factual_query, rank_key
+from src.retrieval.query_focus import extract_query_focus, topical_score
 from src.retrieval.retriever import SemanticRetriever
 from src.retrieval.sparse_retriever import BM25SparseRetriever
 
@@ -165,7 +167,10 @@ class HybridRetriever:
     def retrieve(self, query: str, top_k: int | None = None) -> List[Dict[str, Any]]:
         top_k = int(top_k or self.top_k)
         expanded = expand_query(query)
-        focus_terms = extract_focus_terms(query)
+        focus = extract_query_focus(query)
+        focus_terms = list(focus.get("core_entity_terms") or extract_focus_terms(query))
+        strict_factual_mode = is_strict_factual_query(query)
+        must_match_topic = bool(focus.get("alias_groups")) or strict_factual_mode
 
         dense = self.dense_retriever.retrieve(expanded, top_k=max(self.dense_top_k, top_k))
         sparse = self.sparse_retriever.retrieve(expanded, top_k=max(self.sparse_top_k, top_k))
@@ -188,11 +193,11 @@ class HybridRetriever:
         max_sparse = max((float(x.get("sparse_score") or 0.0) for x in fused.values()), default=1.0) or 1.0
         results: List[Dict[str, Any]] = []
         for item in fused.values():
-            topical = self._topical_score(item, focus_terms)
+            topical = topical_score(item.get("text", ""), item.get("metadata", {}) or {}, focus)
             # Strictly demote sparse-only/dense-only noise that does not mention the
-            # query entity. This fixes cases like "What is ColBERT?" retrieving
-            # unrelated abstracts only because they contain the word "abstract".
-            if focus_terms and topical <= 0.0:
+            # query entity.  Entity aliases must match explicitly; a generic token
+            # inside an alias (for example "retrieval" inside RAG) is not enough.
+            if must_match_topic and focus_terms and topical <= 0.0:
                 continue
 
             dense_score = float(item.get("dense_similarity") or item.get("similarity") or 0.0)
@@ -222,19 +227,39 @@ class HybridRetriever:
             copied["topical_score"] = round(topical, 6)
             copied["weighted_score"] = round(weighted, 6)
             copied["rrf_score"] = round(rrf, 6)
+            copied["base_final_score"] = round(final, 6)
             copied["final_score"] = round(final, 6)
             copied["retrieval_method"] = "hybrid"
+            copied = annotate_evidence(copied, query=query)
+            # Keep the existing relevance score dominant, but allow credibility,
+            # source authority, and factual assertions to break semantic ties.
+            credibility = float(copied.get("evidence_credibility_score") or 0.0)
+            factual_boost = float(copied.get("factual_assertion_score") or 0.0)
+            section_boost = float(copied.get("section_priority") or 0.0)
+            adjusted_final = 0.65 * final + 0.35 * credibility
+            if strict_factual_mode:
+                adjusted_final += 0.10 * factual_boost + 0.05 * section_boost
+            copied["final_score"] = round(max(0.0, min(1.0, adjusted_final)), 6)
+            if copied.get("rejected_by_strict_factual_mode"):
+                continue
             results.append(copied)
 
-        # Fallback: if topical filtering was too strict, return the best fused list.
-        if not results:
+        # Fallback: if topical filtering was too strict and the query did not
+        # contain a clear entity, return the best fused list.  Do not fall back to
+        # off-entity evidence for strict factual questions such as "Who introduced
+        # RAG?" or "RAG was introduced in 2020".
+        if not results and not must_match_topic and not focus_terms:
             for item in fused.values():
                 copied = dict(item)
                 rrf = self._rrf(copied.get("dense_rank"), copied.get("sparse_rank"))
                 copied["rrf_score"] = round(rrf, 6)
+                copied["base_final_score"] = round(rrf, 6)
                 copied["final_score"] = round(rrf, 6)
                 copied["retrieval_method"] = "hybrid"
+                copied = annotate_evidence(copied, query=query)
+                if copied.get("rejected_by_strict_factual_mode"):
+                    continue
                 results.append(copied)
 
-        results.sort(key=lambda x: float(x.get("final_score") or 0.0), reverse=True)
+        results.sort(key=lambda x: rank_key(x, strict_factual_mode=strict_factual_mode), reverse=True)
         return results[:top_k]
