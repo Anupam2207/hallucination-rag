@@ -99,6 +99,8 @@ class HallucinationDetector:
             "recommendation_system_not_in_evidence",
             "collaborative_bert_not_in_evidence",
             "open_source_library_not_in_evidence",
+            "location_based_authentication_not_in_evidence",
+            "specific_application_not_in_evidence",
             "ecommerce_not_in_evidence",
             "product_review_not_in_evidence",
             "no_factual_evidence",

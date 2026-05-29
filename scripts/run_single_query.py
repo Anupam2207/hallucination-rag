@@ -37,6 +37,7 @@ def _compact_result(result: dict) -> dict:
     metrics = result.get("metrics", {}) or {}
     return {
         "query": result.get("query"),
+        "top_k": result.get("top_k"),
         "answerable": result.get("answerable"),
         "raw_answer": result.get("raw_answer"),
         "retrieved_evidence": evidence,
@@ -94,22 +95,28 @@ def main() -> None:
     parser.add_argument("--query", type=str, help="User query to process.")
     parser.add_argument("--top-k", type=int, default=None, help="Override retrieval top-k.")
     parser.add_argument("--json", action="store_true", help="Print compact JSON instead of readable text.")
+    parser.add_argument("--readable", action="store_true", help="Print a human-readable report instead of compact JSON.")
     parser.add_argument("--debug-json", action="store_true", help="Print the full internal debug JSON.")
     parser.add_argument("--no-correction", action="store_true", help="Disable answer correction.")
+    parser.add_argument("--nli", choices=["off", "auto", "on"], default="auto", help="NLI mode for claim verification.")
     args = parser.parse_args()
 
     query = args.query or input("Enter your query: ").strip()
-    pipeline = HallucinationRAGPipeline()
-    result = pipeline.run(query=query, top_k=args.top_k, correction_enabled=not args.no_correction)
+    enable_nli = {"off": False, "auto": None, "on": True}[args.nli]
+    pipeline = HallucinationRAGPipeline(enable_nli=enable_nli)
+    if args.no_correction:
+        result = pipeline.run(query=query, top_k=args.top_k, correction_enabled=False)
+    else:
+        result = pipeline.run(query=query, top_k=args.top_k)
 
     if args.debug_json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         compact = _compact_result(result)
-        if args.json:
-            print(json.dumps(compact, indent=2, ensure_ascii=False))
-        else:
+        if args.readable:
             _print_readable(compact)
+        else:
+            print(json.dumps(compact, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

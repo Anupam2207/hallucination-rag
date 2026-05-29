@@ -112,6 +112,7 @@ class ClaimExtractor:
         text = normalize_for_detection(text)
         text = re.sub(r"^\s*[-*•]\s*", "", text)
         text = re.sub(r"^\s*\d+[\).\s:-]+", "", text)
+        text = re.sub(r"^\s*(?:and|but|or)\s+", "", text, flags=re.IGNORECASE)
         # Remove dangling list markers created by LLM numbered lists, e.g.
         # "... can: 1." or "Improve accuracy 2."  Do not strip four-digit
         # factual years such as 2001 or 2020 from claims.

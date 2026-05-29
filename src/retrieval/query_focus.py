@@ -28,6 +28,8 @@ ALIAS_MAP: Dict[str, List[str]] = {
     "bm25": ["bm25", "sparse retrieval", "lexical retrieval"],
     "chromadb": ["chromadb", "chroma database", "vector database"],
     "llm": ["llm", "large language model", "large language models"],
+    "mfa": ["mfa", "multi-factor authentication", "multi factor authentication"],
+    "domain name system": ["domain name system", "dns"],
     "vehicle safety": ["vehicle safety", "automotive safety", "car safety"],
     "smartphone": ["smartphone", "mobile phone", "mobile device", "smartphones"],
     "ai newsroom": ["ai newsroom", "artificial intelligence in newsrooms", "ai in journalism", "modern newsrooms"],

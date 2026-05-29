@@ -36,6 +36,8 @@ OLD_TO_GENERIC_RULE_FLAGS: dict[str, str] = {
     "explicit_knowledge_representation_not_in_evidence": "unsupported_method_claim",
     "collaborative_filtering_not_in_evidence": "unsupported_method_claim",
     "open_source_library_not_in_evidence": "unsupported_application_claim",
+    "location_based_authentication_not_in_evidence": "unsupported_application_claim",
+    "specific_application_not_in_evidence": "unsupported_application_claim",
     "unsupported_task_example_not_in_evidence": "unsupported_task_claim",
     "machine_translation_not_in_evidence": "unsupported_task_claim",
     "sentiment_analysis_not_in_evidence": "unsupported_task_claim",

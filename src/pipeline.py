@@ -270,7 +270,7 @@ class HallucinationRAGPipeline:
         critical_claims = [
             claim for claim in corrected_detection.get("claims", [])
             if claim.get("label") == "unsupported"
-            and (self._claim_has_critical_flags(claim) or float(claim.get("support_score", 0.0) or 0.0) < 0.40)
+            and self._claim_has_critical_flags(claim)
         ]
         # For non-RAG queries, remove generic RAG boilerplate even if the claim
         # extractor did not classify it as critical.
@@ -310,6 +310,8 @@ class HallucinationRAGPipeline:
                 repaired = INSUFFICIENT_EVIDENCE_RESPONSE
         else:
             repaired = INSUFFICIENT_EVIDENCE_RESPONSE
+        if not removed:
+            return corrected_answer, False, []
         return repaired, True, removed
 
 
@@ -330,7 +332,7 @@ class HallucinationRAGPipeline:
                 if len(sentence.split()) < 5:
                     continue
                 sentences.append(sentence)
-                if len(sentences) >= 2:
+                if len(sentences) >= 3:
                     answer = " ".join(sentences).strip()
                     return answer if re.search(r"[.!?]$", answer) else answer + "."
         return INSUFFICIENT_EVIDENCE_RESPONSE
@@ -456,6 +458,12 @@ class HallucinationRAGPipeline:
                 warnings.append("correction_generation_failed_used_evidence_fallback")
                 warnings.append(str(exc))
             corrected_answer = remove_display_citations(corrected_answer_cited)
+            if self._is_insufficient_answer(corrected_answer):
+                fallback_answer = self._fallback_answer_from_evidence(query, evidence)
+                if fallback_answer and not self._is_insufficient_answer(fallback_answer):
+                    corrected_answer_cited = fallback_answer
+                    corrected_answer = fallback_answer
+                    warnings.append("insufficient_correction_replaced_with_evidence_fallback")
 
             # Guardrail: a supported raw answer must never be replaced by an
             # insufficient-evidence or empty correction.

@@ -21,6 +21,9 @@ _ALIAS_MAP = {
     "llms": ["llm", "large language model", "large language models"],
     "bm25": ["bm25"],
     "rrf": ["rrf", "reciprocal rank fusion"],
+    "mfa": ["mfa", "multi-factor authentication", "multi factor authentication"],
+    "dns": ["dns", "domain name system"],
+    "domain name system": ["domain name system", "dns"],
     "colbert": ["colbert"],
     "truthfulqa": ["truthfulqa", "truthful qa"],
     "dpr": ["dpr", "dense passage retrieval", "dense passage retriever"],
@@ -161,8 +164,13 @@ class HybridRetriever:
         title_haystack = " ".join(
             str(part or "") for part in (metadata.get("file_name"), metadata.get("document_title"), metadata.get("source_rel"))
         ).lower().replace("-", " ")
-        hits = sum(1 for term in focus_terms if any(alias in title_haystack for alias in _ALIAS_MAP.get(term, [term])))
-        return min(0.10, 0.05 * hits)
+        hits = sum(1 for term in focus_terms if any(alias.replace("-", " ") in title_haystack for alias in _ALIAS_MAP.get(term, [term])))
+        exact_phrase_bonus = 0.0
+        for term in focus_terms:
+            aliases = _ALIAS_MAP.get(term, [term])
+            if any(alias.replace("-", " ") in title_haystack for alias in aliases):
+                exact_phrase_bonus = max(exact_phrase_bonus, 0.20)
+        return min(0.45, exact_phrase_bonus + 0.05 * hits)
 
     def retrieve(self, query: str, top_k: int | None = None) -> List[Dict[str, Any]]:
         top_k = int(top_k or self.top_k)
@@ -237,6 +245,7 @@ class HybridRetriever:
             factual_boost = float(copied.get("factual_assertion_score") or 0.0)
             section_boost = float(copied.get("section_priority") or 0.0)
             adjusted_final = 0.65 * final + 0.35 * credibility
+            adjusted_final += 0.30 * title_bonus
             if strict_factual_mode:
                 adjusted_final += 0.10 * factual_boost + 0.05 * section_boost
             copied["final_score"] = round(max(0.0, min(1.0, adjusted_final)), 6)
