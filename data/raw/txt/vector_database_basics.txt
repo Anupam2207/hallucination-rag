@@ -1,1 +1,0 @@
-A vector database stores embeddings so that semantically similar items can be retrieved efficiently. In a RAG pipeline, documents are converted to embeddings, stored in a vector index, and searched with a query embedding. ChromaDB is a lightweight local vector database often used for student projects and prototypes.

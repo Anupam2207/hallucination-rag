@@ -1,1 +1,0 @@
-Ollama provides a simple way to run language models locally. It exposes a local HTTP service and lets developers pull lightweight models such as llama3.2:3b. For a student project, this makes it easier to build a local prototype without paying per API call.

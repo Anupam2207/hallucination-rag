@@ -1,0 +1,5 @@
+Radiocarbon Dating
+
+Radiocarbon dating is a method used to estimate the age of once-living material by measuring the amount of carbon-14 remaining in it. Carbon-14 is a radioactive isotope produced in the atmosphere. Living organisms absorb carbon during life, but after death they stop exchanging carbon with the environment. The carbon-14 then decays at a known rate.
+
+Radiocarbon dating is useful for organic materials such as wood, charcoal, bone, seeds, textiles, and shell, but it is not suitable for dating most rocks directly. The method is most useful for archaeological and environmental samples up to tens of thousands of years old. Calibration is needed because atmospheric carbon-14 levels have varied over time. Contamination can affect results, so sample preparation and context are important.

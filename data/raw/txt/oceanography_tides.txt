@@ -1,0 +1,5 @@
+Tides
+
+Tides are the regular rise and fall of sea level caused mainly by the gravitational pull of the Moon and, to a lesser extent, the Sun. The Moon's gravity creates tidal bulges on Earth, and coastlines pass through these bulges as Earth rotates. Most coastal areas experience two high tides and two low tides each day, although local geography can change the pattern.
+
+Spring tides occur when the Sun, Moon, and Earth are aligned during new moon or full moon phases. These tides have a larger range between high and low water. Neap tides occur when the Sun and Moon pull at right angles, producing a smaller tidal range. Tides influence navigation, coastal ecosystems, sediment movement, and tidal energy projects. Tide tables are based on astronomical calculations and local measurements.

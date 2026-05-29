@@ -1,0 +1,5 @@
+Wind Power
+
+Wind power converts the kinetic energy of moving air into electricity using wind turbines. A turbine's blades capture wind energy and turn a rotor connected to a generator. Wind farms can be located on land or offshore. Offshore wind often has stronger and steadier winds, but installation and maintenance are more expensive.
+
+Wind energy produces electricity without direct fuel combustion, so it has low operational greenhouse gas emissions. Its output varies with wind speed, weather patterns, and turbine placement. Grid operators manage variability using forecasting, transmission, storage, and flexible generation. Turbine design considers blade aerodynamics, tower height, generator type, noise, wildlife impacts, and maintenance access. Wind power is one part of a broader renewable energy system.

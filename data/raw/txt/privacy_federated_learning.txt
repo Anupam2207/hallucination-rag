@@ -1,0 +1,9 @@
+Federated Learning
+
+Federated learning is a machine learning approach where a model is trained across multiple devices or organizations without moving all raw data to a central server. Each participant trains the model locally on its own data and shares model updates instead of raw records.
+
+The central server aggregates updates from participants to improve a global model. This can help protect privacy and reduce data transfer, especially when data is sensitive or distributed across many locations. Federated learning has been studied for mobile keyboards, healthcare, finance, and edge devices.
+
+Federated learning does not automatically guarantee privacy. Model updates can sometimes leak information, so additional techniques such as secure aggregation, differential privacy, access control, and auditing may be needed.
+
+Challenges include communication cost, unreliable devices, non-identical data distributions, poisoning attacks, model drift, and evaluation complexity. A good explanation should distinguish federated learning from simply storing data in the cloud.

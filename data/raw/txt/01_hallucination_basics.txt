@@ -1,1 +1,0 @@
-Hallucination in a large language model is a generated statement that sounds plausible but is unsupported, incorrect, or invented. Hallucinations become more visible when the model answers from parametric memory without checking external evidence. A practical mitigation strategy is to retrieve relevant documents and verify whether the answer is grounded in those documents.

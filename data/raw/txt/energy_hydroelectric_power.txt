@@ -1,0 +1,5 @@
+Hydroelectric Power
+
+Hydroelectric power generates electricity from moving water. In a conventional dam, water stored in a reservoir flows through turbines, causing generators to produce electricity. Run-of-river systems use river flow with little or no large reservoir. Pumped storage plants move water uphill when electricity is abundant and release it downhill when demand is high.
+
+Hydroelectric power can provide reliable electricity and grid flexibility, but it also has environmental and social impacts. Dams can alter river ecosystems, block fish migration, change sediment transport, and flood land. Site selection depends on water availability, elevation difference, geology, environmental constraints, and community impacts. Hydropower output can be affected by drought and changing precipitation patterns.

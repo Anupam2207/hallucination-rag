@@ -1,0 +1,5 @@
+Supply and Demand
+
+Supply and demand is a basic economic model used to explain how prices and quantities are determined in a market. Demand describes how much of a good consumers are willing and able to buy at different prices. Supply describes how much producers are willing and able to sell at different prices. In a simple competitive market, equilibrium occurs where quantity demanded equals quantity supplied.
+
+If price is above equilibrium, a surplus can occur because producers supply more than consumers want to buy. If price is below equilibrium, a shortage can occur because consumers want more than producers supply. Shifts in demand can result from income, preferences, population, substitutes, and complements. Shifts in supply can result from input costs, technology, taxes, weather, and producer expectations.

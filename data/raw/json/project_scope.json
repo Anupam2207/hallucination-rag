@@ -1,18 +1,12 @@
 {
-  "project_title": "Hallucination Detection and Correction in Large Language Models using Retrieval-Augmented Generation",
-  "core_modules": [
-    "query input",
-    "base answer generation",
-    "knowledge base preparation",
-    "retrieval",
-    "hallucination detection",
-    "response correction",
-    "evaluation",
-    "streamlit ui"
+  "project_title": "Local claim-checking RAG prototype",
+  "purpose": "Implementation metadata for the student project; not an authoritative factual source.",
+  "hardware_profile": "8 GB RAM laptop",
+  "preferred_source_priority": [
+    "pdf",
+    "txt",
+    "json",
+    "md"
   ],
-  "constraints": {
-    "timeline": "1 month",
-    "hardware": "Windows laptop with 8 GB RAM",
-    "strategy": "lightweight local implementation"
-  }
+  "ingestion_note": "Use topic-specific files and avoid broad term lists inside raw data."
 }

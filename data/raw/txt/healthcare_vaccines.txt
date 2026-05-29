@@ -1,0 +1,9 @@
+Vaccines
+
+A vaccine is a medical product that trains the immune system to recognize and respond to a pathogen or toxin. Vaccines can contain weakened organisms, inactivated organisms, purified components, genetic instructions, or harmless vectors depending on the vaccine type.
+
+After vaccination, the immune system can produce antibodies and memory cells. If the person later encounters the real pathogen, the immune system can respond more quickly and reduce the chance of severe disease. Vaccination can also reduce transmission for some diseases.
+
+Common vaccine types include live attenuated vaccines, inactivated vaccines, subunit vaccines, toxoid vaccines, viral vector vaccines, and mRNA vaccines. Each type has different storage needs, immune responses, and suitability for different groups.
+
+Vaccine safety is monitored through clinical trials and post-approval surveillance. Side effects such as soreness or mild fever are common for many vaccines, while serious adverse events are rare. Medical decisions should be based on qualified healthcare guidance and current public health recommendations.

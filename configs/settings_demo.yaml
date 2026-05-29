@@ -1,0 +1,31 @@
+runtime:
+  profile: demo
+  hardware_profile: low_resource
+  max_batch_workers: 1
+  max_llm_workers: 1
+  max_nli_workers: 1
+  allow_embedding_hash_fallback: true
+  embedding_backend: hash
+retrieval:
+  mode: hybrid
+  top_k: 4
+  dense_top_k: 8
+  sparse_top_k: 8
+  rrf_k: 60
+  answerability_threshold: 0.45
+detection:
+  enable_nli: false
+  support_threshold: 0.70
+  weak_support_threshold: 0.45
+  answerability_threshold: 0.45
+  nli_entailment_threshold: 0.60
+  nli_contradiction_threshold: 0.60
+  atomic_claim_splitting_enabled: true
+  similarity_support_threshold: 0.70
+  similarity_warning_threshold: 0.45
+verification:
+  enable_nli: false
+  nli_device: cpu
+knowledge_base:
+  mode: demo
+  include_research_pdfs: false

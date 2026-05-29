@@ -1,1 +1,0 @@
-In a RAG pipeline, long documents are usually split into smaller chunks before indexing. Chunking helps the retriever return focused passages instead of entire documents. Each chunk is converted into a dense embedding vector so that semantically similar queries and passages can be matched efficiently.

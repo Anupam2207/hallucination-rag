@@ -1,0 +1,5 @@
+Epidemiology
+
+Epidemiology is the study of how diseases and health-related events are distributed in populations and what factors influence them. Epidemiologists measure incidence, prevalence, risk factors, transmission patterns, and outcomes. Incidence refers to new cases over a period of time, while prevalence refers to all existing cases at a point or period.
+
+Epidemiology supports outbreak investigation, vaccination planning, screening programs, and public health policy. Study designs include cohort studies, case-control studies, cross-sectional surveys, randomized trials, and surveillance systems. Association does not always mean causation, so researchers consider confounding, bias, biological plausibility, and study design. Public health decisions often depend on both scientific evidence and practical constraints.

@@ -1,0 +1,5 @@
+Autonomous Drones
+
+An autonomous drone is an unmanned aerial vehicle that can perform parts of its mission without continuous manual control. Drones use sensors such as cameras, inertial measurement units, GPS receivers, barometers, and sometimes lidar to estimate position and navigate. Flight controllers stabilize the aircraft by adjusting motor speeds many times per second.
+
+Autonomous drones are used in mapping, agriculture, infrastructure inspection, disaster response, and delivery research. Path planning software helps a drone move toward goals while avoiding obstacles and obeying airspace constraints. Battery life, payload weight, weather, communication range, and regulations limit many drone applications. Reliable autonomy requires perception, localization, control, and fail-safe behavior when sensors or links fail.

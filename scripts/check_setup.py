@@ -25,7 +25,10 @@ def main() -> None:
     logger.info("Project name: %s", configs["settings"]["project"]["name"])
     logger.info("Generator model: %s", configs["models"]["generator"]["primary_model"])
     logger.info("Fallback model: %s", configs["models"]["generator"]["fallback_model"])
+    logger.info("Active profile: %s", configs["settings"].get("runtime", {}).get("profile", "demo"))
     logger.info("Embedding model: %s", configs["models"]["embedding"]["model_name"])
+    logger.info("Embedding backend: %s", configs["settings"].get("runtime", {}).get("embedding_backend", "auto"))
+    logger.info("NLI enabled: %s", configs["settings"].get("verification", {}).get("enable_nli", False))
     logger.info(
         "NLI verification model: %s",
         configs["models"]["verification"]["nli_model_name"],

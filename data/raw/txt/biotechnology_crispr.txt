@@ -1,0 +1,9 @@
+CRISPR Gene Editing
+
+CRISPR gene editing is a biotechnology method used to make targeted changes to DNA. CRISPR systems were adapted from bacterial immune mechanisms that help defend against viruses. The most widely known version uses a Cas enzyme guided by RNA to locate a specific DNA sequence.
+
+In a typical CRISPR-Cas9 experiment, a guide RNA directs the Cas9 enzyme to a matching DNA sequence. Cas9 cuts the DNA, and the cell repairs the break. Researchers can use the repair process to disrupt a gene, correct a sequence, or insert new genetic material.
+
+CRISPR is used in basic biology research, agriculture, disease modeling, drug discovery, and experimental therapies. It is powerful because it is relatively flexible and easier to design than many older gene-editing techniques.
+
+Challenges include off-target edits, delivery into cells, immune responses, mosaicism, ethical concerns, and regulation. Human germline editing raises especially serious ethical questions because changes could be inherited by future generations.

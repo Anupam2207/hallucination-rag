@@ -1,0 +1,5 @@
+Quantum Entanglement
+
+Quantum entanglement is a physical phenomenon in which the state of one particle is linked with the state of another particle even when they are separated by large distances. Measuring one entangled particle gives information about the correlated state of the other. Entanglement does not allow faster-than-light communication, because measurement outcomes cannot be controlled to send a chosen message.
+
+Entanglement is a key feature of quantum mechanics and has been tested in many experiments using photons, ions, atoms, and superconducting circuits. It is also a resource for quantum information science. Quantum computing, quantum cryptography, and quantum teleportation protocols rely on controlled entangled states. Entanglement challenges classical intuition because it cannot be explained by simple hidden local properties in the way ordinary objects are correlated.

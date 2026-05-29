@@ -1,0 +1,5 @@
+Mendelian Inheritance
+
+Mendelian inheritance describes how certain traits are passed from parents to offspring according to patterns first identified by Gregor Mendel. Genes exist in different versions called alleles. For many simple traits, an individual inherits one allele from each parent. A dominant allele can mask the effect of a recessive allele when both are present.
+
+A Punnett square can show the possible allele combinations in offspring. Mendel's law of segregation states that allele pairs separate during gamete formation. His law of independent assortment states that alleles of different genes can be inherited independently if they are not linked. Many real traits are more complex than simple Mendelian examples because they involve multiple genes, environmental effects, incomplete dominance, codominance, or gene interactions.

@@ -1,0 +1,9 @@
+Image Classification
+
+Image classification is a computer vision task in which a model assigns one or more labels to an image. For example, a model may classify an image as a cat, dog, car, plant, tumor, road sign, or document type.
+
+Traditional image classification used hand-designed features such as edges, textures, and color histograms. Modern systems usually use deep neural networks, especially convolutional neural networks or vision transformers. These models learn features from data during training.
+
+A supervised image classification dataset contains images and labels. The model learns to map image patterns to the correct labels. Evaluation metrics can include accuracy, precision, recall, F1 score, confusion matrix, top-k accuracy, and calibration.
+
+Image classification is used in medical imaging, manufacturing inspection, agriculture, remote sensing, autonomous vehicles, document processing, and content moderation. Risks include biased datasets, poor generalization, adversarial examples, and overconfidence on unfamiliar images.

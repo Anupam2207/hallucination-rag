@@ -1,1 +1,0 @@
-ChromaDB is a vector database commonly used in small and medium RAG systems. It stores text embeddings along with metadata and allows similarity search over the indexed chunks. In this project it is used as a persistent local store so the retrieval index can be reused between runs.

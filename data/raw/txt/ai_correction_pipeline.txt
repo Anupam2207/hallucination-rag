@@ -1,0 +1,9 @@
+Evidence-Based Correction Pipeline
+
+An evidence-based correction pipeline rewrites unsupported answers using only retrieved passages. The correction step should not invent extra names, dates, numbers, applications, or benchmark results to make an answer sound better.
+
+A safe process identifies weak or unsupported claims, selects passages that directly answer the question, and writes a shorter grounded response. The corrected answer should preserve the subject of the question. A question about who introduced a named method should not become a generic statement about the broader field.
+
+After rewriting, the system should verify the corrected answer again. Post-correction checking is important because a generator can introduce new unsupported details during revision.
+
+A useful corrected answer is not always the longest answer. For definitions, one or two clear paragraphs can be better than a long list if the evidence only supports the definition.

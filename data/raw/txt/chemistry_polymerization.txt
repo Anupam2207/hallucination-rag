@@ -1,0 +1,5 @@
+Polymerization
+
+Polymerization is the chemical process that links many small molecules called monomers into long chains or networks called polymers. Plastics, rubber, synthetic fibers, proteins, and DNA are examples of polymeric materials. In addition polymerization, monomers add to a growing chain without releasing small byproducts. In condensation polymerization, monomers join while releasing small molecules such as water or methanol.
+
+Polymer properties depend on monomer chemistry, chain length, branching, crystallinity, cross-linking, and additives. Thermoplastics can soften when heated and harden when cooled, while thermosets form cross-linked networks that do not melt easily. Polymerization is central to materials manufacturing, packaging, textiles, adhesives, coatings, and biomedical devices. Environmental concerns include plastic waste, recycling difficulty, and microplastic pollution.

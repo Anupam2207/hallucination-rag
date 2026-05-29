@@ -1,0 +1,9 @@
+Atomic Claim Extraction
+
+Atomic claim extraction splits an answer into small factual units. A sentence such as "RAG retrieves documents and uses them to ground generation" contains two claims: RAG retrieves documents, and RAG uses those documents to ground generation.
+
+A fast extractor can begin with sentence splitting. It should also handle bullet lists, numbered lists, semicolons, and conjunction-heavy sentences. Lists often contain compact facts that should not be merged into one large claim.
+
+Citations such as [1], author-year references, or Evidence-2 markers should be removed before scoring because they can distort similarity. Pronouns should be kept when they are part of a sentence, but the surrounding context may be needed to interpret the subject.
+
+Malformed answers should not crash the system. Empty strings, repeated punctuation, headings without content, and broken bullet markers should be ignored or converted into safe short claims.

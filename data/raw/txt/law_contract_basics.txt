@@ -1,0 +1,5 @@
+Contract Basics
+
+A contract is a legally enforceable agreement between parties. Basic elements of a contract often include offer, acceptance, consideration, capacity, and lawful purpose. An offer states proposed terms, while acceptance indicates agreement to those terms. Consideration means that each party gives or promises something of value.
+
+Contracts may be written, oral, or implied by conduct, depending on the legal system and subject matter. Some agreements, such as real estate transactions, may require written form. A breach of contract occurs when a party fails to perform a required obligation without a valid legal excuse. Remedies can include damages, specific performance, cancellation, or restitution. Contract interpretation depends on the language used, the context, and applicable law.

@@ -1,1 +1,0 @@
-A lightweight hallucination detector can compare each answer claim with retrieved evidence using cosine similarity in embedding space. If the maximum similarity between a claim and the evidence is high, the claim is more likely to be supported. If the similarity is low, the claim should be treated as unsupported or doubtful.

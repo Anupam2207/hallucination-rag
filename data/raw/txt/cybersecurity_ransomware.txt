@@ -1,0 +1,5 @@
+Ransomware
+
+Ransomware is malicious software that blocks access to data or systems until a ransom is demanded. Many ransomware attacks encrypt files and display instructions for payment. Some attackers also steal data and threaten to publish it, creating additional pressure on victims. Ransomware can spread through phishing emails, stolen credentials, exposed remote access services, or vulnerable software.
+
+Good defenses include regular offline backups, patch management, network segmentation, endpoint protection, least-privilege access, and incident response planning. Paying a ransom does not guarantee data recovery and may encourage further attacks. Recovery often requires isolating infected systems, preserving evidence, restoring from backups, and closing the initial entry point. Organizations should test backup restoration before an incident occurs.

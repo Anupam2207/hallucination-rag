@@ -1,0 +1,9 @@
+Solar Power
+
+Solar power converts energy from sunlight into usable electricity or heat. Photovoltaic panels generate electricity when light strikes semiconductor materials and creates electric current. Solar thermal systems collect heat from sunlight for water heating, industrial processes, or power generation.
+
+A typical solar photovoltaic system includes panels, inverters, mounting hardware, wiring, protection devices, and sometimes battery storage. The inverter converts direct current from the panels into alternating current for homes or the electric grid.
+
+Solar power produces electricity without direct fuel combustion, so it has low operating emissions. Its output depends on sunlight, weather, panel orientation, shading, temperature, and system maintenance. Because solar generation varies during the day, grids often use storage, demand response, or other generation sources to maintain reliability.
+
+Challenges for solar power include land use, material supply, recycling, intermittency, upfront cost, and grid integration. Despite these challenges, solar energy is widely used in homes, businesses, farms, and utility-scale power plants.

@@ -1,1 +1,0 @@
-In large language models, a hallucination is a fluent statement that is false, unsupported, or inconsistent with the available evidence. Hallucinations can appear when the model lacks relevant context, overgeneralizes from patterns, or confidently invents details.

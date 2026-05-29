@@ -1,1 +1,0 @@
-Claim verification breaks a generated answer into smaller factual statements and checks whether each statement is supported by evidence. A lightweight system can use sentence splitting plus cosine similarity to estimate support. A stronger system can add natural language inference, where a verifier predicts whether evidence entails, contradicts, or does not determine the claim.

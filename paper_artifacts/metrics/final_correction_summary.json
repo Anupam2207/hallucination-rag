@@ -1,0 +1,11 @@
+{
+  "records": 100,
+  "correction_success_rate": 0.4,
+  "hallucination_reduction": 0.685,
+  "support_improvement": 0.1875,
+  "unsafe_correction_rate": 0.0,
+  "corrected_unsupported_claim_count": 0,
+  "corrected_critical_unsupported_claim_count": 0,
+  "no_change_rate": 0.09,
+  "malformed_correction_rate": 0.0
+}

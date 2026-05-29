@@ -1,1 +1,0 @@
-Sentence-transformer embeddings convert text into dense numerical vectors. Semantically similar passages map to nearby vectors, which makes dense retrieval possible. In this project, embeddings are used both for retrieving evidence passages and for computing a support score between claims and evidence.

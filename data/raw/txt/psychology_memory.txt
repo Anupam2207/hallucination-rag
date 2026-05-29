@@ -1,0 +1,5 @@
+Human Memory
+
+Human memory is the set of processes used to encode, store, and retrieve information. Sensory memory holds brief impressions from the senses. Working memory temporarily holds and manipulates information needed for current tasks. Long-term memory stores knowledge, experiences, skills, and habits over longer periods.
+
+Memory is not a perfect recording of events. It can be influenced by attention, emotion, prior knowledge, suggestion, and retrieval context. Explicit memory includes facts and personal experiences that can be consciously recalled. Implicit memory includes skills and conditioned responses that influence behavior without conscious recall. Forgetting can occur because of decay, interference, retrieval failure, or changes in cues. Sleep, spaced practice, and meaningful organization can improve learning and retention.

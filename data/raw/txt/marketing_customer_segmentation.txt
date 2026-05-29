@@ -1,0 +1,5 @@
+Customer Segmentation
+
+Customer segmentation divides a market into groups of customers with similar characteristics, needs, behaviors, or preferences. Segments can be based on demographics, geography, behavior, psychographics, firm size, industry, usage patterns, or purchase history. Segmentation helps organizations design products, messages, pricing, and channels for specific groups.
+
+A useful segment should be measurable, reachable, substantial, and meaningfully different from other segments. Segmentation is not the same as stereotyping; it is a tool for understanding patterns while recognizing individual variation. Data quality and privacy are important when using customer information. Effective segmentation supports targeting and positioning by clarifying which customers a product serves best and why they would choose it.

@@ -1,1 +1,0 @@
-ChromaDB is a vector database designed for storing document embeddings and performing nearest-neighbor search. In a local RAG project, ChromaDB can persist vectors on disk so the index does not need to be rebuilt for every session. Each stored embedding can also include metadata such as document ID, file name, and chunk index.

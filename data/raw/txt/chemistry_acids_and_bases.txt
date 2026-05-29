@@ -1,0 +1,5 @@
+Acids and Bases
+
+Acids and bases are important classes of chemical substances. In the Bronsted-Lowry definition, an acid donates a proton and a base accepts a proton. In water, acids increase the concentration of hydronium ions, while bases increase the concentration of hydroxide ions. The pH scale measures acidity or basicity, with pH 7 considered neutral at room temperature.
+
+Strong acids and strong bases dissociate almost completely in water. Weak acids and weak bases only partially dissociate. Neutralization occurs when an acid and a base react to form water and a salt, although the final pH depends on the strengths and amounts of the reactants. Acids and bases are used in digestion, cleaning, batteries, agriculture, industry, and laboratory analysis.

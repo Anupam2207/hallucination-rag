@@ -1,0 +1,9 @@
+Global Positioning System
+
+The Global Positioning System, or GPS, is a satellite-based navigation system that provides location and time information. It was developed by the United States Department of Defense and later became widely available for civilian use.
+
+GPS works by measuring signals from multiple satellites. A receiver estimates its distance from each satellite based on signal travel time. With signals from at least four satellites, the receiver can estimate latitude, longitude, altitude, and clock correction.
+
+GPS is used in navigation, mapping, aviation, shipping, agriculture, emergency response, construction, telecommunications, and scientific measurement. Smartphones, vehicles, drones, and wearable devices commonly use GPS along with other sensors.
+
+GPS accuracy can be affected by buildings, mountains, atmospheric conditions, signal blockage, satellite geometry, and receiver quality. Other satellite navigation systems include Galileo, GLONASS, BeiDou, and regional augmentation systems.

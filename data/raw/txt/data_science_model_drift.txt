@@ -1,0 +1,5 @@
+Model Drift
+
+Model drift occurs when a machine learning model's performance changes over time because the data distribution, target relationship, or operating environment changes. Data drift means the input features change. Concept drift means the relationship between features and labels changes. Drift can happen because of seasonality, user behavior changes, economic shifts, new devices, or policy changes.
+
+Monitoring drift requires tracking input distributions, prediction patterns, error rates, and business outcomes. A model may need recalibration, retraining, new features, or a new modeling approach when drift is significant. Not every distribution change harms performance, so drift monitoring should be connected to validation data and real outcomes. Production machine learning systems need maintenance after deployment.

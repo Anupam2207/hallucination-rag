@@ -1,0 +1,5 @@
+Transport Layer Security
+
+Transport Layer Security, or TLS, is a cryptographic protocol that protects data sent over networks. It is widely used to secure web browsing, email, messaging, and application programming interfaces. When a browser connects to an HTTPS website, TLS helps authenticate the server and encrypt communication.
+
+A TLS handshake negotiates protocol parameters, verifies certificates, and establishes shared encryption keys. Certificates are issued by certificate authorities that help bind public keys to domain names or organizations. TLS protects confidentiality and integrity, but it does not guarantee that a website's content is truthful or safe. Proper configuration matters because outdated protocol versions, weak ciphers, or certificate errors can reduce security.

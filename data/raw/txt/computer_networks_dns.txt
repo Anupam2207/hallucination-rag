@@ -1,0 +1,5 @@
+Domain Name System
+
+The Domain Name System, or DNS, translates human-readable domain names into IP addresses that computers use to locate servers. When a user enters a website name, a resolver queries DNS servers to find the corresponding address. DNS uses a hierarchical structure that includes root servers, top-level domain servers, authoritative name servers, and recursive resolvers.
+
+DNS records store different types of information. An A record maps a domain to an IPv4 address, while an AAAA record maps to an IPv6 address. MX records identify mail servers, and CNAME records create aliases. DNS caching improves speed and reduces repeated lookups, but cached records may delay changes until the time-to-live expires. DNS security measures such as DNSSEC help protect against forged responses.

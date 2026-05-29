@@ -1,0 +1,5 @@
+Weather Forecasting
+
+Weather forecasting predicts atmospheric conditions such as temperature, precipitation, wind, humidity, and pressure. Meteorologists use observations from weather stations, satellites, radar, aircraft, balloons, ships, and ocean buoys. These observations feed into numerical weather prediction models that simulate atmospheric physics.
+
+Forecast accuracy depends on observation quality, model resolution, physical assumptions, and the chaotic nature of the atmosphere. Short-term forecasts are usually more reliable than forecasts many days ahead. Ensemble forecasting runs multiple model simulations with slightly different initial conditions to estimate uncertainty. Weather forecasts support agriculture, transportation, emergency management, energy demand planning, and daily decision-making. Forecasts communicate both expected conditions and the probability of hazards.

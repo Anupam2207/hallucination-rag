@@ -1,0 +1,9 @@
+Retrieval-Augmented Generation
+
+Retrieval-Augmented Generation, usually called RAG, connects a language model to an external knowledge source. A retriever searches a document collection for passages related to the question. The generator then writes an answer using those passages as context.
+
+A basic RAG system has four parts: ingestion, chunking, retrieval, and generation. Ingestion converts documents into clean text and metadata. Chunking splits long documents into passages. Retrieval ranks passages using sparse search, dense vector search, or a hybrid method. Generation uses the top passages to produce the final response.
+
+RAG is useful for question answering over private documents, technical manuals, policies, and research papers. It can improve factual grounding because the model receives relevant source material during answering.
+
+RAG is not automatically correct. If chunks are noisy, duplicated, too broad, or topically similar without containing the exact answer, the final response can still include unsupported details. A strong RAG system therefore checks whether each answer claim is actually present in the retrieved evidence.

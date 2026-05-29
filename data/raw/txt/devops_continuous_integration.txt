@@ -1,0 +1,5 @@
+Continuous Integration
+
+Continuous integration is a software development practice in which developers frequently merge code changes into a shared repository. Each change is automatically built and tested to detect problems early. CI systems commonly run unit tests, linters, type checks, security scans, and packaging steps.
+
+The goal of continuous integration is to reduce integration conflicts and improve confidence in code changes. Small, frequent commits are easier to review and debug than large, infrequent merges. CI does not eliminate the need for human review, but it provides fast feedback on repeatable checks. A reliable CI pipeline should be deterministic, reasonably fast, and visible to the development team. Broken builds should be fixed quickly to keep the main branch healthy.

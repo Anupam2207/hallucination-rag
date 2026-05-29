@@ -1,0 +1,36 @@
+runtime:
+  profile: research
+  hardware_profile: research
+  max_batch_workers: 1
+  max_llm_workers: 1
+  max_nli_workers: 1
+  allow_embedding_hash_fallback: true
+  embedding_backend: auto
+retrieval:
+  mode: hybrid
+  top_k: 6
+  claim_top_k: 5
+  dense_top_k: 12
+  sparse_top_k: 12
+  rrf_k: 60
+  answerability_threshold: 0.40
+  final_top_k: 8
+detection:
+  enable_nli: true
+  support_threshold: 0.68
+  weak_support_threshold: 0.42
+  answerability_threshold: 0.40
+  nli_entailment_threshold: 0.60
+  nli_contradiction_threshold: 0.60
+  atomic_claim_splitting_enabled: true
+  similarity_support_threshold: 0.68
+  similarity_warning_threshold: 0.42
+verification:
+  enable_nli: true
+  nli_device: cpu
+  nli_max_evidence_chars: 1200
+  nli_entailment_threshold: 0.60
+  nli_contradiction_threshold: 0.60
+knowledge_base:
+  mode: research
+  include_research_pdfs: true

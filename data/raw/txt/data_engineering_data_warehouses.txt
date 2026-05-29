@@ -1,0 +1,5 @@
+Data Warehouses
+
+A data warehouse is a central system designed for analytical querying and reporting. It stores structured data from multiple operational systems and organizes it for business intelligence, dashboards, and decision support. Unlike transactional databases optimized for day-to-day operations, warehouses are optimized for reading, aggregating, and analyzing large datasets.
+
+Common warehouse concepts include fact tables, dimension tables, star schemas, partitions, and materialized views. Extract-transform-load or extract-load-transform pipelines prepare data for analysis. Modern cloud warehouses separate storage and compute, allowing flexible scaling. Data warehouses require governance, access control, documentation, and quality checks. A well-designed warehouse helps organizations answer questions consistently using shared definitions and trusted datasets.

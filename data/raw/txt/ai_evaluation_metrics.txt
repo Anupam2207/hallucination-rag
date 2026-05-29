@@ -1,0 +1,9 @@
+Evaluation Metrics for Grounded Answering Systems
+
+A grounded answering system should be evaluated at multiple levels. Retrieval metrics measure whether relevant passages were found. Detection metrics measure whether claims were labeled correctly. Correction metrics measure whether unsupported content was removed without introducing new unsupported content.
+
+Retrieval recall at k measures whether a gold passage appears in the top k results. Mean reciprocal rank rewards systems that place the right passage near the top. Keyword hit rate checks whether retrieved passages contain expected evidence terms. Answerability success checks whether the retrieved context contains enough information to answer the query.
+
+Claim-level detection can be measured with accuracy, precision, recall, F1, macro F1, a confusion matrix, unsupported recall, false positive rate, and false negative rate.
+
+Correction evaluation can measure support improvement, unsafe correction rate, no-change rate, malformed correction rate, and corrected unsupported claim count. A good correction increases support while preserving the original question subject.

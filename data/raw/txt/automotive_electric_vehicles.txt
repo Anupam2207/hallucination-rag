@@ -1,0 +1,9 @@
+Electric Vehicles
+
+An electric vehicle uses one or more electric motors for propulsion instead of relying only on an internal combustion engine. Battery electric vehicles store energy in a rechargeable battery pack. Plug-in hybrid vehicles combine a battery-powered electric motor with a fuel-burning engine.
+
+Major parts of a battery electric vehicle include the traction battery, electric motor, inverter, onboard charger, thermal management system, and regenerative braking system. The inverter converts direct current from the battery into alternating current for the motor. Regenerative braking recovers some kinetic energy when the vehicle slows down.
+
+Electric vehicles can reduce tailpipe emissions because they do not burn fuel while driving. Their total environmental impact depends on electricity generation, battery production, vehicle efficiency, and end-of-life recycling. Charging speed depends on charger power, battery chemistry, temperature, and the vehicle charging system.
+
+Common challenges include charging infrastructure, battery cost, raw material supply, cold-weather range loss, and battery degradation. Good answers about electric vehicles should distinguish between battery electric vehicles, plug-in hybrids, and conventional hybrids.

@@ -1,0 +1,5 @@
+Digital Accessibility
+
+Digital accessibility means designing websites, applications, documents, and devices so that people with disabilities can use them. Accessibility benefits users with visual, hearing, motor, cognitive, or speech disabilities, and it often improves usability for everyone. Examples include keyboard navigation, screen reader support, captions, sufficient color contrast, clear language, and resizable text.
+
+Accessible design requires semantic structure, descriptive labels, meaningful link text, and alternatives for non-text content. Automated tools can detect some accessibility issues, but human testing is still important. Accessibility should be considered early in design and development rather than added at the end. Many organizations follow the Web Content Accessibility Guidelines as a reference for digital accessibility practices.

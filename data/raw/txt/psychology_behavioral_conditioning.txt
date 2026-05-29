@@ -1,0 +1,5 @@
+Behavioral Conditioning
+
+Behavioral conditioning is a learning process in which behavior changes because of associations or consequences. Classical conditioning occurs when a neutral stimulus becomes associated with a meaningful stimulus and begins to trigger a response. Ivan Pavlov's experiments with dogs are a famous example of classical conditioning.
+
+Operant conditioning occurs when behavior is shaped by reinforcement or punishment. Reinforcement increases the likelihood of a behavior, while punishment decreases it. Positive reinforcement adds a desirable consequence, and negative reinforcement removes an unpleasant condition. Conditioning principles are used in education, animal training, therapy, habit formation, and workplace behavior. Ethical use requires attention to autonomy, consent, and unintended consequences.

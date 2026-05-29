@@ -1,0 +1,9 @@
+Supply Chain Logistics
+
+Supply chain logistics manages the movement and storage of goods, information, and resources from suppliers to customers. It includes transportation, warehousing, inventory management, order fulfillment, packaging, and distribution planning.
+
+A supply chain may involve raw material suppliers, manufacturers, distributors, retailers, logistics providers, and customers. Delays or disruptions at one stage can affect many downstream activities. Visibility and coordination are therefore important.
+
+Common logistics metrics include on-time delivery, order accuracy, inventory turnover, fill rate, lead time, transportation cost, and warehouse utilization. Companies use these metrics to balance cost, speed, reliability, and service quality.
+
+Modern logistics uses route optimization, barcode scanning, RFID, warehouse management systems, demand forecasting, and real-time tracking. Risks include supplier failure, port congestion, weather disruptions, cyberattacks, labor shortages, and sudden demand changes.

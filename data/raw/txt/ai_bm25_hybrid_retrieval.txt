@@ -1,0 +1,9 @@
+BM25, Dense Retrieval, and Hybrid Search
+
+BM25 is a sparse retrieval method that ranks documents using exact term matches and term-frequency statistics. It is strong when a query contains names, dates, technical phrases, or rare words that also appear in the document.
+
+Dense retrieval represents queries and passages as vectors. It can find semantically related text even when the exact words differ, but it may miss rare names or precise numbers if the embedding model is weak.
+
+Hybrid retrieval combines sparse and dense results. Reciprocal rank fusion, or RRF, is a common method for merging ranked lists. Hybrid retrieval often improves robustness because BM25 captures exact words while dense retrieval captures meaning.
+
+For evidence checking, retrieval should return passages that contain the specific fact being asked about. A related passage is not enough for questions about a year, founder, inventor, benchmark score, method, or numerical value.

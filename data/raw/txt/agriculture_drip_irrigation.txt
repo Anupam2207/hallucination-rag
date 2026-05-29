@@ -1,0 +1,5 @@
+Drip Irrigation
+
+Drip irrigation is a watering method that delivers water slowly and directly to the root zone of plants through tubes, emitters, or drip lines. It is more efficient than many surface irrigation methods because less water is lost to evaporation and runoff. Drip systems are widely used in orchards, vegetable farms, greenhouses, and dry regions where water conservation is important.
+
+A drip irrigation system usually includes a water source, filter, pressure regulator, mainline, lateral lines, and emitters. Filters are important because small emitters can clog if sediment or biological material enters the system. Drip irrigation can also deliver dissolved fertilizers through a process called fertigation. The method requires careful design and maintenance, but it can improve crop quality and reduce water use when managed correctly.

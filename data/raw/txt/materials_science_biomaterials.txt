@@ -1,0 +1,5 @@
+Biomaterials
+
+A biomaterial is a material designed to interact with biological systems for medical or therapeutic purposes. Biomaterials are used in implants, wound dressings, drug delivery systems, dental materials, artificial joints, heart valves, and tissue engineering scaffolds. They may be metals, ceramics, polymers, composites, or natural materials.
+
+Biocompatibility means that a material performs its intended function without causing unacceptable harm in the body. Important properties include strength, corrosion resistance, degradation rate, surface chemistry, and immune response. Titanium alloys are common in orthopedic and dental implants because they combine strength with good biocompatibility. Biodegradable polymers can be useful when a temporary scaffold or drug release system is needed. Biomaterial design requires engineering, biology, chemistry, and clinical testing.

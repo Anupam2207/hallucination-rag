@@ -1,0 +1,5 @@
+Graphene
+
+Graphene is a one-atom-thick sheet of carbon atoms arranged in a hexagonal lattice. It is the basic structural unit of graphite, but a single graphene layer has unusual electrical, mechanical, and thermal properties. Graphene is extremely strong for its thickness, conducts heat well, and can carry electrons with high mobility.
+
+Researchers study graphene for potential uses in electronics, sensors, composite materials, energy storage, membranes, and flexible devices. Producing high-quality graphene at large scale remains challenging. Methods include mechanical exfoliation, chemical vapor deposition, and chemical reduction of graphene oxide. Graphene is not a universal replacement for silicon or metals; its usefulness depends on cost, manufacturability, device design, and integration with existing materials.

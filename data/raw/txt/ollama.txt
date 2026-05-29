@@ -1,1 +1,0 @@
-Ollama is a local runtime for large language models. It lets developers run and query models such as Llama locally through a simple command-line interface and HTTP API.

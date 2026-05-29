@@ -1,0 +1,5 @@
+Linear Algebra
+
+Linear algebra is the branch of mathematics that studies vectors, matrices, linear transformations, and systems of linear equations. A vector represents a quantity with components, while a matrix is a rectangular array of numbers that can represent a transformation or a system of equations. Matrix multiplication describes how transformations compose.
+
+Linear algebra is widely used in computer graphics, machine learning, data analysis, physics, engineering, and optimization. Eigenvalues and eigenvectors describe directions that are scaled by a transformation without changing direction. The dot product measures alignment between vectors, and matrix factorization methods help solve large computational problems. In machine learning, data points are often represented as vectors, and models use matrix operations to transform those representations.

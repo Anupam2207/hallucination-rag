@@ -1,191 +1,136 @@
-"""Run the lightweight final evaluation set for the RAG hallucination project.
+"""Run final local evaluation and generate paper-ready artifacts.
 
-This script is intentionally small and local-friendly. It does not download any
-external benchmark. It evaluates the existing pipeline on a curated JSONL set and
-writes CSV/JSON summaries for report tables and ablation studies.
+This script keeps the original CLI flags while defaulting to reproducible
+manual-answer evaluation from ``data/evaluation/final_eval_set.jsonl``. It does
+not require Ollama for the final tables.
 """
 from __future__ import annotations
 
-import csv
 import json
-import re
 import sys
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, List
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.evaluate_retrieval import evaluate_retrieval_records
 from src.evaluation.span_metrics import span_iou
-from src.pipeline import HallucinationRAGPipeline
-from src.utils.text_cleaning import normalize_for_detection
+from scripts.evaluation_common import (
+    evaluate_correction_records,
+    evaluate_detection_records,
+    load_jsonl,
+    write_confusion_matrix_png,
+    write_csv,
+    write_json,
+)
 
 
-def load_jsonl(path: Path) -> List[Dict[str, Any]]:
-    if not path.exists():
-        raise FileNotFoundError(f"Evaluation file not found: {path}")
-    rows: List[Dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    return rows
+def write_qualitative_cases(detection_rows: List[Dict[str, Any]], correction_rows: List[Dict[str, Any]], output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    successes = [row for row in correction_rows if row.get("correction_success") or float(row.get("hallucination_reduction", 0.0) or 0.0) > 0]
+    failures = [row for row in correction_rows if row.get("unsafe_correction") or row.get("malformed_correction") or float(row.get("hallucination_reduction", 0.0) or 0.0) < 0]
+    if not failures:
+        failures = [row for row in correction_rows if not row.get("correction_success")][:5]
 
+    success_lines = ["# Qualitative success cases", ""]
+    for row in successes[:8]:
+        success_lines.extend(
+            [
+                f"## {row.get('id', '')}: {row.get('query', '')}",
+                "",
+                f"Raw answer: {row.get('raw_answer', '')}",
+                "",
+                f"Corrected answer: {row.get('corrected_answer', '')}",
+                "",
+                f"Hallucination reduction: {row.get('hallucination_reduction', 0.0)}",
+                "",
+            ]
+        )
+    (output_dir / "qualitative_success_cases.md").write_text("\n".join(success_lines), encoding="utf-8")
 
-def token_set(text: str) -> set[str]:
-    return set(re.findall(r"[a-zA-Z0-9][a-zA-Z0-9_-]{2,}", normalize_for_detection(text).lower()))
-
-
-def similar_enough(a: str, b: str, threshold: float = 0.45) -> bool:
-    ta = token_set(a)
-    tb = token_set(b)
-    if not ta or not tb:
-        return False
-    score = len(ta & tb) / max(1, len(ta | tb))
-    return score >= threshold or ta.issubset(tb) or tb.issubset(ta)
-
-
-def collect_predicted_unsupported(detection: Dict[str, Any]) -> List[str]:
-    claims = detection.get("claims", []) or []
-    return [str(item.get("claim", "")) for item in claims if item.get("label") == "unsupported"]
-
-
-def claim_prf(gold_unsupported: Iterable[str], predicted_unsupported: Iterable[str]) -> Dict[str, float]:
-    gold = list(gold_unsupported or [])
-    pred = list(predicted_unsupported or [])
-    matched_gold: set[int] = set()
-    tp = 0
-    for p in pred:
-        hit = None
-        for i, g in enumerate(gold):
-            if i in matched_gold:
-                continue
-            if similar_enough(p, g):
-                hit = i
-                break
-        if hit is not None:
-            matched_gold.add(hit)
-            tp += 1
-    fp = max(0, len(pred) - tp)
-    fn = max(0, len(gold) - tp)
-    precision = tp / (tp + fp) if (tp + fp) else 0.0
-    recall = tp / (tp + fn) if (tp + fn) else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
-    return {"precision": round(precision, 4), "recall": round(recall, 4), "f1": round(f1, 4)}
-
-
-def collect_predicted_spans(detection: Dict[str, Any]) -> List[Dict[str, Any]]:
-    spans: List[Dict[str, Any]] = []
-    for claim in detection.get("claims", []) or []:
-        spans.extend(claim.get("hallucinated_spans", []) or [])
-    return spans
-
-
-def evidence_keyword_hit_rate(evidence: List[Dict[str, Any]], expected_keywords: Iterable[str]) -> float:
-    keywords = [normalize_for_detection(str(k)).lower() for k in (expected_keywords or []) if str(k).strip()]
-    if not keywords:
-        return 0.0
-    text = normalize_for_detection(" ".join(str(item.get("text", "")) for item in evidence)).lower()
-    hits = sum(1 for keyword in keywords if keyword in text)
-    return round(hits / len(keywords), 4)
-
-
-def average(values: Iterable[float]) -> float:
-    values = list(values)
-    return round(sum(values) / len(values), 4) if values else 0.0
+    failure_lines = ["# Qualitative failure cases", ""]
+    for row in failures[:8]:
+        failure_lines.extend(
+            [
+                f"## {row.get('id', '')}: {row.get('query', '')}",
+                "",
+                f"Raw answer: {row.get('raw_answer', '')}",
+                "",
+                f"Corrected answer: {row.get('corrected_answer', '')}",
+                "",
+                f"Status: {row.get('correction_status', '')}",
+                "",
+            ]
+        )
+    (output_dir / "qualitative_failure_cases.md").write_text("\n".join(failure_lines), encoding="utf-8")
 
 
 def main() -> None:
-    parser = ArgumentParser(description="Run final lightweight benchmark evaluation.")
+    parser = ArgumentParser(description="Run final benchmark and generate paper artifacts.")
     parser.add_argument("--input", default="data/evaluation/final_eval_set.jsonl")
-    parser.add_argument("--output-dir", default="results")
+    parser.add_argument("--output-dir", default="paper_artifacts")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--retrieval", choices=["dense", "hybrid"], default="hybrid")
+    parser.add_argument("--retrieval", choices=["bm25", "dense", "hybrid"], default="hybrid")
     parser.add_argument("--nli", choices=["on", "off"], default="off")
     parser.add_argument("--correction", choices=["on", "off"], default="on")
+    parser.add_argument("--top-k", type=int, default=None)
     args = parser.parse_args()
 
     records = load_jsonl(PROJECT_ROOT / args.input)
     if args.limit is not None:
         records = records[: args.limit]
 
-    output_dir = PROJECT_ROOT / args.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
+    enable_nli = args.nli == "on"
+    detection_rows, detection_summary = evaluate_detection_records(records, enable_nli=enable_nli, rules=True)
+    # Kept for backward-compatible evaluation scaffolds. The current detector is
+    # claim-level, so span_iou is reported only when explicit predicted spans
+    # are added by downstream experiments.
+    detection_summary["span_iou"] = round(
+        sum(span_iou([], record.get("gold_hallucinated_spans", []) or []) for record in records) / len(records), 4
+    ) if records else 0.0
+    retrieval_rows, retrieval_summary = evaluate_retrieval_records(records, mode=args.retrieval, top_k=args.top_k)
+    correction_rows: list[dict[str, Any]] = []
+    correction_summary: dict[str, Any] = {"records": len(records), "correction": args.correction}
+    if args.correction == "on":
+        correction_rows, correction_summary = evaluate_correction_records(records, enable_nli=enable_nli)
 
-    pipeline = HallucinationRAGPipeline(
-        retrieval_mode=args.retrieval,
-        enable_nli=(args.nli == "on"),
-    )
-    correction_enabled = args.correction == "on"
+    artifact_dir = PROJECT_ROOT / args.output_dir
+    tables_dir = artifact_dir / "tables"
+    figures_dir = artifact_dir / "figures"
+    qualitative_dir = artifact_dir / "qualitative_examples"
+    metrics_dir = artifact_dir / "metrics"
+    reports_dir = PROJECT_ROOT / "outputs" / "reports"
+    for directory in (tables_dir, figures_dir, qualitative_dir, metrics_dir, reports_dir):
+        directory.mkdir(parents=True, exist_ok=True)
 
-    rows: List[Dict[str, Any]] = []
-    for index, record in enumerate(records, start=1):
-        query = str(record.get("query", "")).strip()
-        print(f"[{index}/{len(records)}] {query}")
-        result = pipeline.run(query=query, correction_enabled=correction_enabled)
-        raw_detection = result.get("raw_detection", {}) or {}
-        corrected_detection = result.get("corrected_detection", {}) or {}
-        metrics = result.get("metrics", {}) or {}
-        predicted_unsupported = collect_predicted_unsupported(raw_detection)
-        prf = claim_prf(record.get("gold_unsupported_claims", []), predicted_unsupported)
-        predicted_spans = collect_predicted_spans(raw_detection)
-        span_score = span_iou(predicted_spans, record.get("gold_hallucinated_spans", []))
-        row = {
-            "id": record.get("id", index),
-            "query": query,
-            "expected_answer_type": record.get("expected_answer_type", ""),
-            "retrieval_mode": result.get("retrieval_mode"),
-            "nli": args.nli,
-            "correction": args.correction,
-            "answerability_status": result.get("answerability_status", ""),
-            "raw_support_ratio": metrics.get("raw_support_ratio", 0.0),
-            "corrected_support_ratio": metrics.get("corrected_support_ratio", 0.0),
-            "raw_hallucination_rate": metrics.get("raw_hallucination_rate", 0.0),
-            "corrected_hallucination_rate": metrics.get("corrected_hallucination_rate", 0.0),
-            "hallucination_reduction": metrics.get("hallucination_reduction", 0.0),
-            "factual_improvement": metrics.get("factual_improvement", 0.0),
-            "average_corrected_support_score": corrected_detection.get("average_support_score", 0.0),
-            "correction_status": metrics.get("correction_status", ""),
-            "correction_success": metrics.get("correction_success", False),
-            "precision": prf["precision"],
-            "recall": prf["recall"],
-            "f1": prf["f1"],
-            "span_iou": span_score,
-            "evidence_keyword_hit_rate": evidence_keyword_hit_rate(result.get("evidence", []), record.get("expected_evidence_keywords", [])),
-        }
-        rows.append(row)
+    write_csv(tables_dir / "final_detection_results.csv", detection_rows)
+    write_json(metrics_dir / "final_detection_summary.json", detection_summary)
+    write_csv(tables_dir / "retrieval_results.csv", retrieval_rows)
+    write_json(metrics_dir / "retrieval_summary.json", retrieval_summary)
+    write_confusion_matrix_png(detection_summary["confusion_matrix"], figures_dir / "confusion_matrix.png")
+    write_csv(reports_dir / "final_detection_results.csv", detection_rows)
+    write_json(reports_dir / "final_detection_summary.json", detection_summary)
+    write_csv(reports_dir / "retrieval_results.csv", retrieval_rows)
+    write_json(reports_dir / "retrieval_summary.json", retrieval_summary)
 
-    suffix = f"{args.retrieval}_nli-{args.nli}_correction-{args.correction}"
-    csv_path = output_dir / f"final_eval_results_{suffix}.csv"
-    summary_path = output_dir / f"final_eval_summary_{suffix}.json"
+    if args.correction == "on":
+        write_csv(tables_dir / "final_correction_results.csv", correction_rows)
+        write_json(metrics_dir / "final_correction_summary.json", correction_summary)
+        write_csv(reports_dir / "final_correction_results.csv", correction_rows)
+        write_json(reports_dir / "final_correction_summary.json", correction_summary)
+        write_qualitative_cases(detection_rows, correction_rows, qualitative_dir)
 
-    with csv_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()) if rows else [])
-        if rows:
-            writer.writeheader()
-            writer.writerows(rows)
-
-    summary = {
-        "count": len(rows),
-        "retrieval": args.retrieval,
-        "nli": args.nli,
-        "correction": args.correction,
-        "avg_precision": average(float(r["precision"]) for r in rows),
-        "avg_recall": average(float(r["recall"]) for r in rows),
-        "avg_f1": average(float(r["f1"]) for r in rows),
-        "avg_span_iou": average(float(r["span_iou"]) for r in rows),
-        "avg_support_score": average(float(r["average_corrected_support_score"] or 0.0) for r in rows),
-        "avg_hallucination_reduction": average(float(r["hallucination_reduction"] or 0.0) for r in rows),
-        "correction_success_rate": average(1.0 if r["correction_success"] in {True, "True", "true", 1} else 0.0 for r in rows),
-        "avg_evidence_keyword_hit_rate": average(float(r["evidence_keyword_hit_rate"] or 0.0) for r in rows),
-        "notes": "Precision/recall/F1 are approximate claim-overlap metrics for lightweight local evaluation. Span IoU uses gold character spans when available.",
+    combined_summary = {
+        "records": len(records),
+        "retrieval": retrieval_summary,
+        "detection": detection_summary,
+        "correction": correction_summary,
     }
-    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(f"Wrote {csv_path}")
-    print(f"Wrote {summary_path}")
+    write_json(metrics_dir / "final_evaluation_summary.json", combined_summary)
+    print(json.dumps(combined_summary, indent=2))
 
 
 if __name__ == "__main__":

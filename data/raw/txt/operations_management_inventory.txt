@@ -1,0 +1,5 @@
+Inventory Management
+
+Inventory management is the process of ordering, storing, tracking, and using goods or materials. Businesses manage inventory to meet demand while controlling storage costs and avoiding excess stock. Too little inventory can cause stockouts and lost sales, while too much inventory ties up cash and may become obsolete.
+
+Common inventory concepts include reorder point, safety stock, lead time, cycle counting, and economic order quantity. Just-in-time systems aim to reduce inventory by coordinating supply closely with production or demand, but they can be vulnerable to disruptions. Inventory accuracy depends on good records, labeling, warehouse processes, and forecasting. Effective inventory management supports customer service, cash flow, production continuity, and supply chain resilience.

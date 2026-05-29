@@ -1,0 +1,5 @@
+Neurons
+
+Neurons are specialized cells that transmit information in the nervous system. A typical neuron has a cell body, dendrites, and an axon. Dendrites receive signals from other cells, while the axon carries electrical impulses away from the cell body. The junction between neurons is called a synapse.
+
+Neurons communicate using electrical and chemical signals. An action potential is a rapid change in membrane voltage that travels along the axon. At many synapses, the arriving signal triggers release of neurotransmitters, which cross the synaptic gap and bind to receptors on another cell. Glial cells support neurons by providing insulation, nutrients, immune defense, and regulation of the cellular environment. Neural circuits underlie sensation, movement, learning, memory, and behavior.

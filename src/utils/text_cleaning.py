@@ -19,7 +19,7 @@ _EVIDENCE_CITATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-_INNER_EVIDENCE_ID_PATTERN = re.compile(r"Evidence\s*[-:]?\s*\d+", re.IGNORECASE)
+_INNER_EVIDENCE_ID_PATTERN = re.compile(r"Evidence\s*[-:]\s*\d+\s*\]?", re.IGNORECASE)
 
 _NON_FACTUAL_PREFIXES = (
     "i couldn't find",
@@ -110,7 +110,7 @@ def normalize_for_detection(text: str) -> str:
     cleaned = re.sub(r"\s+([.,;:!?])", r"\1", cleaned)
     cleaned = re.sub(r"\[\s*\]", "", cleaned)
     # Avoid malformed numbered-list fragments becoming claims.
-    if "\n" in cleaned or re.search(r"\s\d+[\).]\s", cleaned):
+    if "\n" in cleaned or re.search(r"\s\d{1,2}[\).]\s", cleaned):
         cleaned = clean_malformed_lists(cleaned)
     return cleaned.strip()
 
@@ -141,12 +141,12 @@ def clean_malformed_lists(text: str) -> str:
     cleaned = text.replace("\r\n", "\n").replace("\r", "\n")
     cleaned = re.sub(r"\*\*", "", cleaned)
     # Put numbered items on separate lines when they appear inline.
-    cleaned = re.sub(r"\s+(\d+)[\).]\s+(?=[A-Z])", r"\n\1. ", cleaned)
+    cleaned = re.sub(r"\s+(\d{1,2})[\).]\s+(?=[A-Z])", r"\n\1. ", cleaned)
     # Remove empty/dangling numeric markers such as `2. 3.` or final `1.`.
     cleaned = re.sub(r"(?:^|\n)\s*\d+[\).]\s*(?=\n|$)", "\n", cleaned)
     cleaned = re.sub(r"\s+\d{1,2}[\).]\s*(?=\d{1,2}[\).]|$)", " ", cleaned)
     # Remove remaining inline list markers, e.g. "item one 3. item two".
-    cleaned = re.sub(r"\s+\d+[\).]\s+(?=[A-Z])", " ", cleaned)
+    cleaned = re.sub(r"\s+\d{1,2}[\).]\s+(?=[A-Z])", " ", cleaned)
     cleaned = re.sub(r"(can|include|including|as follows):\s*\d+[\).]?\s*$", r"\1:", cleaned, flags=re.IGNORECASE)
     # Collapse repeated whitespace but preserve paragraph/list line breaks.
     lines = [re.sub(r"\s+", " ", line).strip() for line in cleaned.split("\n")]

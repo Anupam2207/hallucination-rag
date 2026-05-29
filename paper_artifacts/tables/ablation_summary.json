@@ -1,0 +1,88 @@
+{
+  "records": 100,
+  "real_nli_enabled": false,
+  "variants": [
+    {
+      "component": "retrieval",
+      "variant": "bm25-only retrieval",
+      "recall_at_k": 1.0,
+      "mrr": 0.985,
+      "evidence_keyword_hit_rate": 0.92,
+      "answerability_retrieval_success": 0.97,
+      "notes": ""
+    },
+    {
+      "component": "retrieval",
+      "variant": "dense-only retrieval",
+      "recall_at_k": 0.74,
+      "mrr": 0.74,
+      "evidence_keyword_hit_rate": 0.6167,
+      "answerability_retrieval_success": 0.83,
+      "notes": ""
+    },
+    {
+      "component": "retrieval",
+      "variant": "hybrid retrieval",
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "evidence_keyword_hit_rate": 0.8933,
+      "answerability_retrieval_success": 0.96,
+      "notes": ""
+    },
+    {
+      "component": "detection",
+      "variant": "similarity-only detection",
+      "claim_accuracy": 0.92,
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1": 0.9677,
+      "macro_f1": 0.6189,
+      "unsupported_recall": 1.0,
+      "notes": ""
+    },
+    {
+      "component": "detection",
+      "variant": "similarity + factual rules",
+      "claim_accuracy": 0.92,
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1": 0.9677,
+      "macro_f1": 0.6189,
+      "unsupported_recall": 1.0,
+      "notes": ""
+    },
+    {
+      "component": "detection",
+      "variant": "similarity + NLI",
+      "claim_accuracy": 0.92,
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1": 0.9677,
+      "macro_f1": 0.6189,
+      "unsupported_recall": 1.0,
+      "notes": "NLI disabled/fallback for demo"
+    },
+    {
+      "component": "detection",
+      "variant": "similarity + factual rules + NLI",
+      "claim_accuracy": 0.92,
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1": 0.9677,
+      "macro_f1": 0.6189,
+      "unsupported_recall": 1.0,
+      "notes": "NLI disabled/fallback for demo"
+    },
+    {
+      "component": "full_system",
+      "variant": "full system with correction",
+      "correction_success_rate": 0.4,
+      "hallucination_reduction": 0.685,
+      "support_improvement": 0.1875,
+      "unsafe_correction_rate": 0.0,
+      "no_change_rate": 0.09,
+      "notes": "deterministic evidence-only correction for reproducible local evaluation"
+    }
+  ],
+  "notes": "By default, NLI ablations use the safe disabled/fallback path to keep demo mode laptop-friendly. Use --enable-real-nli for research runs."
+}

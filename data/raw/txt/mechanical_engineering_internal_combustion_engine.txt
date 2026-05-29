@@ -1,0 +1,5 @@
+Internal Combustion Engines
+
+An internal combustion engine converts the chemical energy of fuel into mechanical work by burning the fuel inside the engine. In a four-stroke gasoline engine, the piston completes intake, compression, power, and exhaust strokes. During the intake stroke, an air-fuel mixture enters the cylinder. During compression, the mixture is compressed. A spark ignites the mixture during the power stroke, and exhaust gases leave during the exhaust stroke.
+
+Diesel engines typically use compression ignition rather than spark ignition. They compress air to a high temperature and then inject fuel, which ignites because of the heat. Engine performance depends on compression ratio, fuel quality, air flow, combustion efficiency, friction, and emissions control systems. Internal combustion engines remain common in transportation, though electric powertrains are growing in many vehicle markets.

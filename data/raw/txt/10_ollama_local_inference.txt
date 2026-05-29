@@ -1,1 +1,0 @@
-Ollama is useful for local inference because it lets a student run compact models on a personal laptop without cloud dependency. A small model such as llama3.2:3b is a practical default for low-resource hardware. Local inference is slower than cloud APIs, but it is cheaper and easier to demonstrate offline.

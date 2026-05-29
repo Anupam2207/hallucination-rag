@@ -1,0 +1,9 @@
+Cloud Computing
+
+Cloud computing delivers computing resources such as servers, storage, databases, networking, and software over the internet. Instead of owning all hardware locally, organizations can rent resources from cloud providers and scale them as needed.
+
+Common cloud service models include infrastructure as a service, platform as a service, and software as a service. Infrastructure as a service provides virtual machines, storage, and networks. Platform as a service provides managed development platforms. Software as a service delivers complete applications through a browser or client.
+
+Cloud deployment models include public cloud, private cloud, hybrid cloud, and multi-cloud. Public cloud services are shared across many customers with logical isolation. Private cloud is dedicated to one organization. Hybrid cloud combines on-premises systems with cloud services.
+
+Benefits include scalability, faster provisioning, global availability, managed services, and reduced upfront infrastructure cost. Risks include misconfiguration, vendor lock-in, data governance concerns, cost overruns, and service outages.

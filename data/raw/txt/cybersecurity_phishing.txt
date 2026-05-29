@@ -1,0 +1,5 @@
+Phishing
+
+Phishing is a social engineering attack in which an attacker tricks people into revealing sensitive information or performing harmful actions. Phishing messages may imitate banks, employers, delivery services, government agencies, or trusted coworkers. They often create urgency by claiming that an account will be locked, a payment failed, or immediate action is required.
+
+Common signs of phishing include suspicious links, unexpected attachments, spelling errors, mismatched sender addresses, and requests for passwords or verification codes. Spear phishing targets specific individuals or organizations with more personalized messages. Defenses include user training, multi-factor authentication, email filtering, domain authentication, and careful verification of requests. Reporting suspicious messages helps security teams detect campaigns and protect others.

@@ -1,0 +1,5 @@
+Exoplanets
+
+An exoplanet is a planet that orbits a star outside the Solar System. Thousands of exoplanets have been confirmed using methods such as the transit method and the radial velocity method. The transit method detects a small dimming of starlight when a planet passes in front of its host star. The radial velocity method measures tiny shifts in a star's spectrum caused by the gravitational pull of an orbiting planet.
+
+Exoplanets vary widely in size, temperature, and composition. Some are gas giants larger than Jupiter, while others are rocky worlds similar in size to Earth. A planet in the habitable zone has an orbit where liquid water could exist on its surface if atmospheric conditions are suitable. The habitable zone does not guarantee life; it only indicates a possible temperature range. Space telescopes such as Kepler and TESS have expanded the catalog of known exoplanets and helped scientists study planetary systems beyond our own.

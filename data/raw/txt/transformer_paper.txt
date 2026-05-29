@@ -1,1 +1,0 @@
-The Transformer architecture was introduced in the 2017 paper “Attention Is All You Need.” The paper was written by Vaswani and colleagues and replaced recurrent computation with self-attention.

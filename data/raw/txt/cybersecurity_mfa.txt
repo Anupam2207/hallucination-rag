@@ -1,0 +1,9 @@
+Multi-Factor Authentication
+
+Multi-factor authentication, or MFA, is a security method that requires users to prove identity using more than one type of factor. Common factors include something the user knows, such as a password; something the user has, such as a phone or hardware token; and something the user is, such as a biometric trait.
+
+MFA improves security because a stolen password alone is not enough to access an account. Attackers must also defeat the second factor. Common MFA methods include authenticator apps, hardware security keys, SMS codes, email codes, and biometric prompts.
+
+Hardware security keys and authenticator apps are generally stronger than SMS codes because phone numbers can be targeted by SIM swapping or interception. Phishing-resistant MFA uses cryptographic checks to ensure the user is signing in to the real service and not a fake site.
+
+MFA does not remove all security risks. Users can still approve fraudulent prompts, devices can be stolen, and recovery processes can be abused. Organizations should combine MFA with monitoring, least privilege access, user education, and secure account recovery.

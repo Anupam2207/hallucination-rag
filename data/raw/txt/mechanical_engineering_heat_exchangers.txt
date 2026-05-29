@@ -1,0 +1,5 @@
+Heat Exchangers
+
+A heat exchanger is a device that transfers thermal energy between two fluids without necessarily mixing them. Heat exchangers are used in power plants, automobiles, refrigerators, chemical processing, and heating and cooling systems. Common designs include shell-and-tube, plate, finned-tube, and double-pipe heat exchangers.
+
+The direction of flow affects performance. In parallel-flow designs, both fluids move in the same direction. In counter-flow designs, the fluids move in opposite directions, which usually allows a larger temperature difference across the exchanger and improves heat transfer. Fouling occurs when deposits build up on heat transfer surfaces, reducing efficiency. Engineers select heat exchanger materials based on temperature, pressure, corrosion resistance, cost, and ease of cleaning.

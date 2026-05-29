@@ -1,0 +1,5 @@
+Industrial Robots
+
+Industrial robots are programmable machines used to perform tasks such as welding, painting, assembly, packaging, material handling, and inspection. A typical industrial robot includes mechanical links, joints, actuators, sensors, a controller, and an end effector. The end effector may be a gripper, welding torch, suction cup, or specialized tool.
+
+Robots are valuable in manufacturing because they can repeat motions accurately, work in hazardous environments, and operate for long periods. Common robot types include articulated robots, SCARA robots, Cartesian robots, and delta robots. Safety systems such as fences, light curtains, emergency stops, and collaborative force limits protect human workers. Modern industrial robotics increasingly combines machine vision, force sensing, and AI-based planning to handle more flexible tasks.

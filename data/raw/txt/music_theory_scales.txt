@@ -1,0 +1,5 @@
+Musical Scales
+
+A musical scale is an ordered set of pitches used as the basis for melodies and harmonies. In Western music, the major scale has a pattern of whole and half steps that produces a bright and stable sound. The natural minor scale uses a different step pattern and often sounds darker or more somber. Other scale types include pentatonic, chromatic, harmonic minor, melodic minor, and modes.
+
+Scales help musicians organize pitch relationships and create expectations. The tonic is the central note of a scale, and other notes are heard in relation to it. Chords are often built by stacking notes from a scale. Scales are used in composition, improvisation, ear training, and analysis. Different musical traditions use different tuning systems and scale structures.

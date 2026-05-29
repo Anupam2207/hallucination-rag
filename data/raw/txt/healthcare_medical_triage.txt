@@ -1,0 +1,9 @@
+Medical Triage
+
+Medical triage is the process of prioritizing patients based on the urgency of their condition and available resources. Triage is used in emergency departments, disaster response, battlefield medicine, ambulance services, and telehealth screening.
+
+The purpose of triage is to identify patients who need immediate care, patients who can wait safely, and patients who require a different level of service. Triage does not provide a full diagnosis. It is a sorting process that guides the next step in care.
+
+Triage decisions may consider vital signs, symptoms, injury severity, age, medical history, and risk factors. Chest pain, severe breathing difficulty, uncontrolled bleeding, stroke symptoms, and loss of consciousness are examples of conditions that often require urgent attention.
+
+Digital triage tools can support decision-making, but they must be designed carefully because incorrect recommendations can cause harm. Clinical oversight, validation, transparency, and safety monitoring are important for healthcare AI systems.

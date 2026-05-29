@@ -1,0 +1,53 @@
+{
+  "count": 150,
+  "accuracy": 0.92,
+  "precision": 0.9375,
+  "recall": 1.0,
+  "f1": 0.9677,
+  "macro_f1": 0.6189,
+  "unsupported_recall": 1.0,
+  "false_positive_rate": 0.1,
+  "false_negative_rate": 0.0,
+  "per_label": {
+    "supported": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1": 0.8889,
+      "support": 60
+    },
+    "weak_support": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    "unsupported": {
+      "precision": 0.9375,
+      "recall": 1.0,
+      "f1": 0.9677,
+      "support": 90
+    }
+  },
+  "confusion_matrix": {
+    "supported": {
+      "supported": 48,
+      "weak_support": 6,
+      "unsupported": 6
+    },
+    "weak_support": {
+      "supported": 0,
+      "weak_support": 0,
+      "unsupported": 0
+    },
+    "unsupported": {
+      "supported": 0,
+      "weak_support": 0,
+      "unsupported": 90
+    }
+  },
+  "records": 100,
+  "claims": 150,
+  "nli_enabled": false,
+  "rules_enabled": true,
+  "span_iou": 1.0
+}

@@ -1,0 +1,5 @@
+Electrical Transformers
+
+A transformer is an electrical device that transfers alternating current energy between circuits using electromagnetic induction. A basic transformer has a primary winding, a secondary winding, and a magnetic core. When alternating current flows through the primary winding, it creates a changing magnetic field that induces voltage in the secondary winding.
+
+Transformers can step voltage up or step voltage down depending on the ratio of turns in the windings. Power grids use high-voltage transmission to reduce current and lower resistive losses over long distances. Distribution transformers then reduce voltage to safer levels for homes and businesses. Transformers work with alternating current because induction requires a changing magnetic field. Efficiency is affected by copper losses, core losses, leakage flux, and heating.

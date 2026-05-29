@@ -1,0 +1,5 @@
+Containers
+
+A container is a lightweight package that includes an application and its runtime dependencies. Containers share the host operating system kernel but isolate processes, filesystems, and networking. Docker popularized container workflows, while Kubernetes is commonly used to orchestrate containers across clusters.
+
+Containers help developers run software consistently across development, testing, and production environments. A container image is built from instructions that specify the base image, dependencies, files, and startup command. Containers are not the same as virtual machines; virtual machines include a full guest operating system, while containers are usually smaller and faster to start. Security still matters because vulnerable images, excessive privileges, and exposed secrets can create risk.

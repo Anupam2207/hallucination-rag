@@ -1,1 +1,0 @@
-A correction pipeline should not simply regenerate an answer from scratch. A stronger design compares the raw answer against retrieved evidence, removes unsupported claims, and rewrites the response so that only supported information remains. This project uses the raw answer, the query, and the retrieved evidence when generating the corrected response.

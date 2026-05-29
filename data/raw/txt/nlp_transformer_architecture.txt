@@ -1,0 +1,9 @@
+Transformer Architecture
+
+The transformer is a neural network architecture widely used in natural language processing and other fields. It was introduced in the 2017 paper "Attention Is All You Need" by Vaswani and colleagues. Transformers rely heavily on attention mechanisms rather than recurrent processing.
+
+Self-attention allows a model to compare each token with other tokens in the same sequence. This helps the model represent relationships between words even when they are far apart. Multi-head attention lets the model learn several types of relationships in parallel.
+
+A transformer block typically contains attention layers, feed-forward layers, residual connections, layer normalization, and positional information. Encoder-only transformers are often used for understanding tasks. Decoder-only transformers are often used for text generation. Encoder-decoder transformers are often used for sequence-to-sequence tasks such as translation.
+
+Transformers enabled major progress in language models, retrieval, vision models, speech systems, and multimodal AI. Their main challenges include high computation cost, memory usage, data requirements, and difficulty interpreting internal representations.

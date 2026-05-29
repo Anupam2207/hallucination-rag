@@ -1,0 +1,5 @@
+Earthquake-Resistant Buildings
+
+Earthquake-resistant building design aims to reduce collapse risk during seismic shaking. Engineers do not make ordinary buildings completely earthquake-proof; instead, they design structures to absorb and dissipate energy while protecting life safety. Important design features include ductile structural members, strong connections, shear walls, braced frames, and carefully detailed foundations.
+
+Base isolation is a technique that separates a building from ground motion using flexible bearings or sliders. Energy-dissipating dampers can also reduce vibration. Building codes in seismic regions specify design forces, materials, detailing rules, and inspection requirements. Soil conditions matter because soft soils can amplify shaking or liquefy during an earthquake. Good seismic design combines structural engineering, geotechnical analysis, code compliance, and construction quality control.

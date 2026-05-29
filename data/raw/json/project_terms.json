@@ -1,5 +1,0 @@
-{
-  "term": "hallucination detection",
-  "definition": "The process of identifying claims in a generated answer that are unsupported, weakly supported, or contradicted by retrieved evidence.",
-  "project_note": "A practical student pipeline can start with similarity-based support scoring and later add an NLI verifier for stronger claim-evidence checking."
-}

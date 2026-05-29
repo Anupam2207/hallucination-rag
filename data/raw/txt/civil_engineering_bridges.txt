@@ -1,0 +1,5 @@
+Bridge Engineering
+
+A bridge is a structure that carries traffic, pedestrians, railways, or utilities across an obstacle such as a river, valley, or road. Common bridge types include beam bridges, arch bridges, truss bridges, suspension bridges, and cable-stayed bridges. Each type uses a different structural principle to transfer loads to the ground.
+
+Bridge engineers consider dead loads, live loads, wind forces, temperature changes, earthquakes, and foundation conditions. The deck carries traffic, while supports such as piers, abutments, cables, or arches transfer forces. Steel and reinforced concrete are common bridge materials because they provide strength and durability. Regular inspection is essential because corrosion, fatigue, scour around foundations, and overloading can reduce safety. A well-designed bridge balances strength, serviceability, construction cost, and maintenance requirements.

@@ -1,0 +1,5 @@
+Semiconductors
+
+A semiconductor is a material whose electrical conductivity lies between that of a conductor and an insulator. Silicon is the most widely used semiconductor in electronic devices. The conductivity of a semiconductor can be controlled by adding small amounts of impurities through a process called doping. N-type doping adds extra electrons, while p-type doping creates holes that behave like positive charge carriers.
+
+Semiconductors are the basis of diodes, transistors, solar cells, sensors, and integrated circuits. A transistor can act as a switch or amplifier, enabling digital logic and modern computing. Semiconductor devices depend on band structure, carrier mobility, junctions, and fabrication precision. Cleanrooms are used in chip manufacturing because tiny particles can damage microscopic circuit patterns.

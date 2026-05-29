@@ -1,0 +1,5 @@
+Black Holes
+
+A black hole is a region of spacetime where gravity is so strong that nothing, not even light, can escape after crossing the event horizon. Black holes form when massive stars collapse at the end of their lives, but supermassive black holes also exist at the centers of many galaxies. The boundary called the event horizon is not a solid surface; it is the point beyond which escape would require faster-than-light motion.
+
+Astronomers infer black holes by observing how nearby gas, stars, and light behave. Gas falling toward a black hole can heat up and emit X-rays. Stars orbiting an unseen compact object can reveal the object's mass. In 2019, the Event Horizon Telescope collaboration released the first image of a black hole shadow in the galaxy M87. Black holes do not act like cosmic vacuum cleaners at large distances. Objects can orbit a black hole just as planets orbit a star if they remain outside the event horizon.

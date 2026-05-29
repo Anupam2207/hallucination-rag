@@ -1,11 +1,12 @@
 import re
 from typing import Any, Dict, List
 
-from src.config import get_config_value
+from src.config import get_config_value, get_first_config_value
 from src.detection.detector import HallucinationDetector
 from src.detection.factual_consistency import extract_capitalized_entities, extract_dates, extract_numbers, extract_years
 from src.detection.support_scorer import SupportScorer
 from src.detection.nli_verifier import NLIVerifier
+from src.detection.rule_flags import categorize_rule_flags
 from src.evaluation.metrics import CRITICAL_UNSUPPORTED_FLAGS, HallucinationMetrics
 from src.generation.base_answer import BaseAnswerGenerator
 from src.generation.correction import AnswerCorrector, INSUFFICIENT_EVIDENCE_RESPONSE
@@ -46,7 +47,11 @@ class HallucinationRAGPipeline:
         )
         self.retrieval_mode = mode
         self.answerability_threshold = float(
-            get_config_value("settings", "retrieval", "answerability_threshold", default=0.45)
+            get_first_config_value(
+                ("settings", "retrieval", "answerability_threshold"),
+                ("settings", "detection", "answerability_threshold"),
+                default=0.45,
+            )
         )
 
     @staticmethod
@@ -112,7 +117,8 @@ class HallucinationRAGPipeline:
         fact_patterns = (
             "introduced", "invented", "created", "proposed", "released", "published",
             "launched", "developed", "won", "began", "started", "founded", "built",
-            "which year", "when", "who", "where", "date", "year",
+            "established", "headquartered", "located", "which year", "when", "who",
+            "where", "date", "year",
         )
         return any(pattern in clean for pattern in fact_patterns)
 
@@ -150,23 +156,42 @@ class HallucinationRAGPipeline:
             if not query_numbers.issubset(evidence_numbers):
                 return False, "insufficient_evidence_for_specific_fact"
         lower = clean_query.lower()
-        asks_year = any(token in lower for token in ("when", "which year", "introduced", "released", "published", "launched"))
+        asks_year = any(token in lower for token in (
+            "when", "which year", "introduced", "released", "published", "launched",
+            "invented", "created", "developed", "founded", "established", "built", "year"
+        ))
         if asks_year and not evidence_years and not query_years:
             return False, "insufficient_evidence_for_specific_fact"
 
-        asks_who_intro = any(pattern in lower for pattern in (
-            "who introduced", "who invented", "who proposed", "who created", "who developed"
+        asks_who_relation = any(pattern in lower for pattern in (
+            "who introduced", "who invented", "who proposed", "who created", "who developed",
+            "who founded", "who established", "who launched", "who built", "who published",
         ))
-        if asks_who_intro:
-            entities = set(extract_capitalized_entities(evidence_text))
+        entities = set(extract_capitalized_entities(evidence_text))
+        stop_entities = {
+            "RAG", "Retrieval", "Augmented", "Generation", "ColBERT", "TruthfulQA",
+            "DPR", "REALM", "BM25", "LLM", "The", "This", "It",
+        }
+        meaningful_entities = {entity for entity in entities if entity not in stop_entities}
+        if asks_who_relation:
             # Require at least one person/organization-like entity beyond the
             # target acronym/name and at least one relation word in evidence.
             relation_present = any(term in evidence_text.lower() for term in (
-                "introduced", "invented", "proposed", "created", "developed", "authored", "written by"
+                "introduced", "invented", "proposed", "created", "developed", "authored",
+                "written by", "founded", "established", "launched", "built", "published by"
             ))
-            stop_entities = {"RAG", "Retrieval", "Augmented", "Generation", "ColBERT", "TruthfulQA"}
-            meaningful_entities = {entity for entity in entities if entity not in stop_entities}
             if not relation_present or not meaningful_entities:
+                return False, "insufficient_evidence_for_specific_fact"
+
+        asks_where_relation = lower.startswith("where") or any(pattern in lower for pattern in (
+            "where was", "where were", "where is", "where are", "founded where", "introduced where"
+        ))
+        if asks_where_relation:
+            location_relation_present = any(term in evidence_text.lower() for term in (
+                "founded in", "founded at", "established in", "established at",
+                "introduced in", "launched in", "located in", "based in", "headquartered in"
+            ))
+            if not location_relation_present or not meaningful_entities:
                 return False, "insufficient_evidence_for_specific_fact"
         return True, None
 
@@ -202,6 +227,8 @@ class HallucinationRAGPipeline:
     @staticmethod
     def _claim_has_critical_flags(claim_result: Dict[str, Any]) -> bool:
         flags = set(claim_result.get("rule_flags", []) or [])
+        flags.update(categorize_rule_flags(flags))
+        flags.update(claim_result.get("rule_categories", []) or [])
         return bool(flags.intersection(CRITICAL_UNSUPPORTED_FLAGS)) or claim_result.get("nli_label") == "contradiction"
 
     @staticmethod
@@ -285,6 +312,40 @@ class HallucinationRAGPipeline:
             repaired = INSUFFICIENT_EVIDENCE_RESPONSE
         return repaired, True, removed
 
+
+    @classmethod
+    def _fallback_answer_from_evidence(cls, query: str, evidence: List[Dict[str, Any]]) -> str:
+        """Build a small evidence-only answer when the local LLM is unavailable."""
+        relation_answer = AnswerCorrector._deterministic_relation_answer(query, evidence)
+        if relation_answer:
+            return relation_answer
+        sentences: list[str] = []
+        for item in evidence:
+            if item.get("evidence_type") in {"EXAMPLE", "REFERENCE", "NOISE"}:
+                continue
+            text = normalize_for_detection(str(item.get("text", "")))
+            text = re.sub(r"^#+\s*", "", text).strip()
+            text = re.sub(r"^(Retrieval[- ]Augmented Generation)\s+\1\b", r"\1", text, flags=re.IGNORECASE)
+            for sentence in cls._split_sentences(text):
+                if len(sentence.split()) < 5:
+                    continue
+                sentences.append(sentence)
+                if len(sentences) >= 2:
+                    answer = " ".join(sentences).strip()
+                    return answer if re.search(r"[.!?]$", answer) else answer + "."
+        return INSUFFICIENT_EVIDENCE_RESPONSE
+
+    @staticmethod
+    def _supported_or_weak_ratio(detection: Dict[str, Any]) -> float:
+        count = int(detection.get("claim_count", 0) or 0)
+        if count <= 0:
+            return 0.0
+        return (int(detection.get("supported_count", 0) or 0) + int(detection.get("weak_count", 0) or 0)) / count
+
+    @staticmethod
+    def _is_insufficient_answer(answer: str) -> bool:
+        return (answer or "").strip().lower().startswith("insufficient evidence")
+
     def _safe_return(self, query: str, evidence: List[Dict[str, Any]], warnings: List[str], status: str) -> Dict[str, Any]:
         safe_response = self._safe_insufficient_response(query)
         empty_detection = self._empty_detection()
@@ -346,10 +407,27 @@ class HallucinationRAGPipeline:
         try:
             raw_answer = self.generator.generate_answer(query)
         except OllamaServiceError as exc:
-            raw_answer = f"LLM generation failed: {exc}"
+            raw_answer = self._fallback_answer_from_evidence(query, evidence)
             warnings.append("llm_generation_failed")
+            warnings.append(f"used_evidence_only_generation_fallback: {exc}")
 
         raw_detection = self.detector.detect(raw_answer, evidence)
+
+        correction_action = "not_needed"
+        raw_supported_or_weak = self._supported_or_weak_ratio(raw_detection)
+        raw_claim_count = int(raw_detection.get("claim_count", 0) or 0)
+        raw_unsupported_count = int(raw_detection.get("unsupported_count", 0) or 0)
+        raw_critical_count = sum(
+            1 for claim in raw_detection.get("claims", []) or []
+            if claim.get("label") == "unsupported" and self._claim_has_critical_flags(claim)
+        )
+
+        raw_is_already_supported = (
+            raw_claim_count > 0
+            and raw_unsupported_count == 0
+            and raw_supported_or_weak >= 0.85
+            and raw_critical_count == 0
+        )
 
         if not correction_enabled:
             corrected_answer_cited = raw_answer
@@ -357,26 +435,68 @@ class HallucinationRAGPipeline:
             corrected_detection = raw_detection
             repaired = False
             removed: List[Dict[str, Any]] = []
+            correction_action = "disabled"
             if "correction_disabled" not in warnings:
                 warnings.append("correction_disabled")
+        elif raw_is_already_supported:
+            # Simple, safe behavior: if the raw LLM answer is already grounded,
+            # keep it. Do not call correction and risk making it worse.
+            corrected_answer_cited = raw_answer
+            corrected_answer = raw_answer
+            corrected_detection = raw_detection
+            repaired = False
+            removed = []
+            correction_action = "not_needed"
         else:
-            corrected_answer_cited = self.corrector.correct(query, raw_answer, evidence)
+            correction_action = "corrected"
+            try:
+                corrected_answer_cited = self.corrector.correct(query, raw_answer, evidence)
+            except OllamaServiceError as exc:
+                corrected_answer_cited = self._fallback_answer_from_evidence(query, evidence)
+                warnings.append("correction_generation_failed_used_evidence_fallback")
+                warnings.append(str(exc))
             corrected_answer = remove_display_citations(corrected_answer_cited)
-            corrected_detection = self.detector.detect(corrected_answer, evidence)
 
-            repaired_answer, repaired, removed = self._repair_corrected_answer(corrected_answer, corrected_detection, query)
-            if repaired:
-                corrected_answer = repaired_answer
+            # Guardrail: a supported raw answer must never be replaced by an
+            # insufficient-evidence or empty correction.
+            if raw_supported_or_weak >= 0.75 and self._is_insufficient_answer(corrected_answer):
+                corrected_answer_cited = raw_answer
+                corrected_answer = raw_answer
+                corrected_detection = raw_detection
+                repaired = False
+                removed = []
+                correction_action = "not_needed"
+                warnings.append("correction_reverted_to_supported_raw_answer")
+            else:
                 corrected_detection = self.detector.detect(corrected_answer, evidence)
+                repaired_answer, repaired, removed = self._repair_corrected_answer(corrected_answer, corrected_detection, query)
+                if repaired:
+                    corrected_answer = repaired_answer
+                    corrected_detection = self.detector.detect(corrected_answer, evidence)
 
-            if AnswerCorrector._is_malformed_answer(corrected_answer):
-                corrected_answer = INSUFFICIENT_EVIDENCE_RESPONSE
-                corrected_answer_cited = INSUFFICIENT_EVIDENCE_RESPONSE
-                corrected_detection = self._empty_detection()
-                repaired = True
-                warnings.append("malformed_corrected_answer_replaced")
+                if (not corrected_detection.get("claim_count")) and raw_supported_or_weak >= 0.75:
+                    corrected_answer_cited = raw_answer
+                    corrected_answer = raw_answer
+                    corrected_detection = raw_detection
+                    repaired = False
+                    removed = []
+                    correction_action = "not_needed"
+                    warnings.append("empty_correction_reverted_to_supported_raw_answer")
+                elif AnswerCorrector._is_malformed_answer(corrected_answer):
+                    corrected_answer = INSUFFICIENT_EVIDENCE_RESPONSE
+                    corrected_answer_cited = INSUFFICIENT_EVIDENCE_RESPONSE
+                    corrected_detection = self._empty_detection()
+                    repaired = True
+                    correction_action = "refused"
+                    warnings.append("malformed_corrected_answer_replaced")
 
         metrics = HallucinationMetrics.summarize(raw_detection, corrected_detection)
+        metrics["correction_action"] = correction_action
+        if correction_action == "not_needed":
+            metrics["correction_success"] = True
+            metrics["correction_status"] = "no_change"
+        elif correction_action == "refused" and not answerable_by_score:
+            metrics["correction_success"] = True
         raw_answer_confidence = self._answer_confidence(evidence_confidence, raw_detection)
         corrected_answer_confidence = self._answer_confidence(evidence_confidence, corrected_detection)
 

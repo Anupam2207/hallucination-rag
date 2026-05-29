@@ -1,0 +1,5 @@
+Regression Analysis
+
+Regression analysis is a statistical method for modeling the relationship between a dependent variable and one or more independent variables. Linear regression fits a line or hyperplane that predicts a continuous outcome from input features. The coefficients estimate how much the predicted outcome changes when a feature changes, holding other features constant.
+
+Regression is used for prediction, explanation, forecasting, and trend analysis. Important assumptions for ordinary least squares include linearity, independent errors, constant variance, and limited multicollinearity. Residuals are the differences between observed and predicted values. Overfitting occurs when a model captures noise rather than the underlying pattern. Regularization methods such as ridge and lasso regression can improve generalization by penalizing overly large coefficients.

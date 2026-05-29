@@ -1,0 +1,5 @@
+Smart Grids
+
+A smart grid is an electricity network that uses digital communication, sensors, automation, and data analysis to monitor and manage power flow. Traditional grids were designed mainly for one-way delivery from large power plants to consumers. Smart grids support two-way communication and can integrate distributed energy resources such as rooftop solar panels, battery storage, and electric vehicles.
+
+Smart meters provide more detailed information about electricity use and can support demand response programs. Automated switches and sensors help utilities detect faults and restore service faster. Smart grids also help manage variable renewable energy sources by improving forecasting and grid flexibility. Cybersecurity is important because digital grid infrastructure can become a target for attacks. A smart grid combines electrical engineering, control systems, communications, and software.

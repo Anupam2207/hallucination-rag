@@ -1,0 +1,5 @@
+Hypothesis Testing
+
+Hypothesis testing is a statistical method used to evaluate evidence about a claim using sample data. A null hypothesis usually represents no effect or no difference, while an alternative hypothesis represents the effect being tested. A p-value measures how extreme the observed data would be if the null hypothesis were true.
+
+A small p-value suggests that the data are unlikely under the null hypothesis, but it does not prove that the alternative hypothesis is true. Statistical significance is not the same as practical importance. Errors can occur: a Type I error rejects a true null hypothesis, while a Type II error fails to reject a false null hypothesis. Good hypothesis testing requires careful study design, appropriate assumptions, adequate sample size, and transparent reporting.

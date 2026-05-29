@@ -1,0 +1,5 @@
+Food Webs
+
+A food web is a network of feeding relationships in an ecosystem. It shows how energy and nutrients move among producers, consumers, and decomposers. Producers such as plants and algae use photosynthesis to create organic matter. Herbivores eat producers, carnivores eat other animals, omnivores eat both plants and animals, and decomposers break down dead material.
+
+Food webs are more realistic than simple food chains because organisms usually have multiple food sources and predators. Removing one species can affect many others through direct and indirect interactions. Keystone species have effects that are large relative to their abundance. Energy is lost as heat at each trophic level, so higher-level consumers usually have less available energy than organisms lower in the web. Healthy ecosystems depend on balanced interactions among many species.

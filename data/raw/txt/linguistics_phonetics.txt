@@ -1,0 +1,5 @@
+Phonetics
+
+Phonetics is the study of the physical sounds of human speech. It examines how speech sounds are produced by the vocal tract, how they travel as sound waves, and how listeners perceive them. Articulatory phonetics focuses on how the tongue, lips, teeth, vocal cords, and airflow create sounds. Acoustic phonetics studies the measurable properties of sound waves, such as frequency and amplitude.
+
+The International Phonetic Alphabet provides symbols for representing speech sounds across languages. Consonants can be described by place of articulation, manner of articulation, and voicing. Vowels are described by tongue height, tongue backness, lip rounding, and tenseness. Phonetics is useful in language teaching, speech therapy, linguistics, forensics, and speech recognition technology.

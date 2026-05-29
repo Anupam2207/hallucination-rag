@@ -1,0 +1,5 @@
+Usability
+
+Usability describes how effectively, efficiently, and satisfactorily people can use a product to achieve their goals. A usable interface is understandable, responsive, consistent, accessible, and forgiving of mistakes. Usability is important in websites, mobile apps, medical devices, industrial systems, educational tools, and public services.
+
+Common usability methods include user interviews, task analysis, heuristic evaluation, usability testing, surveys, and analytics. During a usability test, participants attempt realistic tasks while researchers observe difficulties and collect feedback. Good design reduces cognitive load and makes important actions visible. Accessibility is related but broader, ensuring people with disabilities can use the system. Usability should be evaluated with real users rather than assumed by designers alone.

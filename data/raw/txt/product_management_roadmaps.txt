@@ -1,0 +1,5 @@
+Product Roadmaps
+
+A product roadmap is a strategic plan that communicates the direction, priorities, and intended outcomes of a product over time. Roadmaps help teams align around customer problems, business goals, and delivery sequencing. A roadmap may include themes, initiatives, features, milestones, or experiments depending on the organization.
+
+Good roadmaps explain why work matters, not just what will be built. They should be updated as teams learn from users, market changes, technical constraints, and data. A roadmap is not a fixed promise of exact dates unless the organization treats it that way. Product managers use roadmaps to coordinate engineering, design, sales, support, marketing, and leadership. Outcome-focused roadmaps emphasize measurable customer or business results rather than lists of features alone.

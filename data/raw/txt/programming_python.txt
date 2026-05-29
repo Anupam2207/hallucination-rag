@@ -1,0 +1,9 @@
+Python Programming Language
+
+Python is a high-level programming language known for readability and a large standard library. Guido van Rossum created Python, and its first public release was in 1991. Python supports multiple programming styles, including procedural, object-oriented, and functional programming.
+
+Python is widely used for scripting, web development, data analysis, automation, machine learning, scientific computing, education, and software testing. Its syntax uses indentation to define code blocks, which makes formatting part of the language structure.
+
+Important Python features include dynamic typing, automatic memory management, modules, packages, list comprehensions, exceptions, and a large ecosystem of third-party libraries. Popular libraries include NumPy, pandas, scikit-learn, FastAPI, Flask, PyTorch, and TensorFlow.
+
+Python is not always the fastest language for CPU-heavy tasks, but it is popular because it is productive and integrates well with libraries written in C, C++, and Rust. Good Python projects use virtual environments, tests, clear dependency files, and readable documentation.

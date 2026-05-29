@@ -1,0 +1,77 @@
+{
+  "records": 100,
+  "retrieval": {
+    "records": 100,
+    "retrieval_mode": "hybrid",
+    "top_k": 4,
+    "recall_at_k": 1.0,
+    "mrr": 1.0,
+    "evidence_keyword_hit_rate": 0.8933,
+    "answerability_retrieval_success": 0.96,
+    "failed_retrievals": 0
+  },
+  "detection": {
+    "count": 150,
+    "accuracy": 0.92,
+    "precision": 0.9375,
+    "recall": 1.0,
+    "f1": 0.9677,
+    "macro_f1": 0.6189,
+    "unsupported_recall": 1.0,
+    "false_positive_rate": 0.1,
+    "false_negative_rate": 0.0,
+    "per_label": {
+      "supported": {
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1": 0.8889,
+        "support": 60
+      },
+      "weak_support": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "unsupported": {
+        "precision": 0.9375,
+        "recall": 1.0,
+        "f1": 0.9677,
+        "support": 90
+      }
+    },
+    "confusion_matrix": {
+      "supported": {
+        "supported": 48,
+        "weak_support": 6,
+        "unsupported": 6
+      },
+      "weak_support": {
+        "supported": 0,
+        "weak_support": 0,
+        "unsupported": 0
+      },
+      "unsupported": {
+        "supported": 0,
+        "weak_support": 0,
+        "unsupported": 90
+      }
+    },
+    "records": 100,
+    "claims": 150,
+    "nli_enabled": false,
+    "rules_enabled": true,
+    "span_iou": 1.0
+  },
+  "correction": {
+    "records": 100,
+    "correction_success_rate": 0.4,
+    "hallucination_reduction": 0.685,
+    "support_improvement": 0.1875,
+    "unsafe_correction_rate": 0.0,
+    "corrected_unsupported_claim_count": 0,
+    "corrected_critical_unsupported_claim_count": 0,
+    "no_change_rate": 0.09,
+    "malformed_correction_rate": 0.0
+  }
+}

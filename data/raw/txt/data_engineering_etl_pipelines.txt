@@ -1,0 +1,5 @@
+ETL Pipelines
+
+ETL stands for extract, transform, and load. An ETL pipeline moves data from source systems, cleans or transforms it, and loads it into a target system such as a data warehouse. Sources may include databases, logs, APIs, files, sensors, or business applications. Transformations can include filtering, joining, deduplication, validation, type conversion, and aggregation.
+
+Reliable ETL pipelines handle schema changes, missing data, failed jobs, late arrivals, and duplicate records. Logging and monitoring help engineers detect failures quickly. Batch pipelines process data at scheduled intervals, while streaming pipelines process events continuously or near real time. Data quality checks are important because downstream analytics and machine learning depend on trustworthy data.

@@ -1,9 +1,10 @@
 from typing import Any
 import re
 
-from src.config import get_config_value
+from src.config import get_config_value, get_first_config_value
 from src.detection.claim_extractor import ClaimExtractor
 from src.detection.nli_verifier import NLIVerifier
+from src.detection.rule_flags import categorize_rule_flags
 from src.detection.span_highlighter import highlight_hallucinated_spans
 from src.detection.support_scorer import SupportScorer
 from src.retrieval.embedder import EmbeddingModel
@@ -28,16 +29,32 @@ class HallucinationDetector:
 
         self.nli_verifier = nli_verifier or NLIVerifier()
         self.support_threshold = float(
-            get_config_value("settings", "detection", "similarity_support_threshold", default=0.70)
+            get_first_config_value(
+                ("settings", "detection", "support_threshold"),
+                ("settings", "detection", "similarity_support_threshold"),
+                default=0.70,
+            )
         )
         self.warning_threshold = float(
-            get_config_value("settings", "detection", "similarity_warning_threshold", default=0.45)
+            get_first_config_value(
+                ("settings", "detection", "weak_support_threshold"),
+                ("settings", "detection", "similarity_warning_threshold"),
+                default=0.45,
+            )
         )
         self.nli_entailment_threshold = float(
-            get_config_value("settings", "detection", "nli_entailment_threshold", default=0.60)
+            get_first_config_value(
+                ("settings", "detection", "nli_entailment_threshold"),
+                ("settings", "verification", "nli_entailment_threshold"),
+                default=0.60,
+            )
         )
         self.nli_contradiction_threshold = float(
-            get_config_value("settings", "detection", "nli_contradiction_threshold", default=0.60)
+            get_first_config_value(
+                ("settings", "detection", "nli_contradiction_threshold"),
+                ("settings", "verification", "nli_contradiction_threshold"),
+                default=0.60,
+            )
         )
         self.nli_min_similarity_to_run = float(
             get_config_value("settings", "verification", "nli_min_similarity_to_run", default=0.35)
@@ -57,6 +74,15 @@ class HallucinationDetector:
     def critical_rule_flags() -> set[str]:
         return {
             "nli_contradiction",
+            "numeric_mismatch",
+            "temporal_mismatch",
+            "entity_mismatch",
+            "definition_mismatch",
+            "unsupported_method_claim",
+            "unsupported_task_claim",
+            "unsupported_application_claim",
+            "unsupported_performance_claim",
+            "unsupported_training_claim",
             "numeric_mismatch_with_evidence",
             "claim_year_not_supported_by_evidence",
             "claim_date_not_supported_by_evidence",
@@ -295,6 +321,7 @@ class HallucinationDetector:
                     "combined_evidence_indices": score_info.get("combined_evidence_indices"),
                     "combined_evidence_types": score_info.get("combined_evidence_types"),
                     "rule_flags": fused_flags,
+                    "rule_categories": categorize_rule_flags(fused_flags),
                     "factual_consistency": score_info.get("factual_consistency"),
                     "nli_label": nli_result.get("label"),
                     "nli_adjusted_label": adjusted_nli_label,

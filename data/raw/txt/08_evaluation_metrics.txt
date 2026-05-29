@@ -1,1 +1,0 @@
-Useful project metrics include supported claim ratio, hallucination rate, and factual improvement after correction. Supported claim ratio measures how many extracted claims are supported by evidence. Hallucination rate measures the proportion of unsupported claims. Factual improvement can be computed as the increase in support ratio after correction.

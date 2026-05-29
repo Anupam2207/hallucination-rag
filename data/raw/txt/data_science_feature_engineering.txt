@@ -1,0 +1,5 @@
+Feature Engineering
+
+Feature engineering is the process of creating, transforming, selecting, or encoding input variables for a machine learning model. Good features can make patterns easier for a model to learn. Examples include normalizing numeric values, encoding categories, extracting dates, creating ratios, aggregating transaction history, and converting text into numeric representations.
+
+Feature engineering depends on domain knowledge and careful validation. Data leakage occurs when features include information that would not be available at prediction time. Leakage can make a model look accurate during testing but fail in real use. Automated feature learning in deep learning has reduced some manual feature engineering, but preprocessing and representation choices still matter. Clear documentation of features improves reproducibility and model governance.

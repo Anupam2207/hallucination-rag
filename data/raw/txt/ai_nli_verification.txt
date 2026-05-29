@@ -1,0 +1,9 @@
+Natural Language Inference for Claim Verification
+
+Natural language inference, or NLI, compares a premise with a hypothesis. In claim verification, the evidence passage is the premise and the answer claim is the hypothesis. The model predicts entailment, contradiction, or neutral.
+
+NLI can help when similarity alone is misleading. Two sentences can use similar words but disagree on a year, number, or entity. Evidence saying a model was introduced in 2020 contradicts a claim saying it was introduced in 2019.
+
+NLI is computationally heavier than lexical rules or similarity scoring. On an 8 GB laptop, it should be optional and disabled in demo mode. Research mode can enable it for final evaluation if the model is available.
+
+NLI results should be combined with answerability checks, retrieval confidence, and factual consistency rules. This makes the decision easier to explain and reduces dependence on a single model.

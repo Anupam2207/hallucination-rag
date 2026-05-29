@@ -1,0 +1,9 @@
+Database Transactions
+
+A database transaction is a sequence of operations treated as a single logical unit of work. Transactions help keep data consistent even when errors, crashes, or concurrent users are present. A common example is transferring money between accounts, where one account must be debited and another credited.
+
+Transactions are often described by ACID properties. Atomicity means all operations in a transaction succeed or none are applied. Consistency means the database moves from one valid state to another. Isolation means concurrent transactions should not interfere in unsafe ways. Durability means committed changes survive a crash.
+
+Relational databases such as PostgreSQL, MySQL, and SQLite support transactions. Isolation levels control how much one transaction can see changes from another. Higher isolation can reduce anomalies but may reduce concurrency.
+
+Transactions are useful in banking, inventory systems, order processing, healthcare records, and any system where partial updates can cause serious errors. Not every workload needs strict transactions, but critical data usually benefits from them.

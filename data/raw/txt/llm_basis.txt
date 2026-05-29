@@ -1,1 +1,0 @@
-Large language models are deep neural networks trained on massive text corpora. They generate text by predicting the next token in a sequence. Examples include Llama, GPT, and Mistral models.

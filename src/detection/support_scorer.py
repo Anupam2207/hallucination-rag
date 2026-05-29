@@ -8,6 +8,7 @@ from src.detection.factual_consistency import (
     extract_years,
     run_factual_consistency_checks,
 )
+from src.detection.rule_flags import categorize_rule_flags
 from src.retrieval.embedder import EmbeddingModel
 from src.retrieval.evidence_intent import (
     FACTUAL,
@@ -266,6 +267,7 @@ class SupportScorer:
             "best_evidence_index": None,
             "best_evidence": None,
             "rule_flags": [],
+            "rule_categories": [],
             "factual_consistency": {"flags": [], "details": {}},
             "best_single_score": 0.0,
             "combined_context_score": 0.0,
@@ -284,6 +286,7 @@ class SupportScorer:
         if not prepared:
             result = dict(empty_result)
             result["rule_flags"] = ["no_factual_evidence"]
+            result["rule_categories"] = ["no_factual_evidence"]
             return result
 
         clean_claim = normalize_for_detection(claim)
@@ -379,6 +382,7 @@ class SupportScorer:
             "best_evidence_index": best_original_index,
             "best_evidence": best_evidence,
             "rule_flags": flags,
+            "rule_categories": categorize_rule_flags(flags),
             "factual_consistency": factual_result,
             "best_single_score": round(float(best_score), 4),
             "combined_context_score": round(float(combined_score), 4),

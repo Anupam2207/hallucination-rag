@@ -1,0 +1,9 @@
+component,variant,recall_at_k,mrr,evidence_keyword_hit_rate,answerability_retrieval_success,notes,claim_accuracy,precision,recall,f1,macro_f1,unsupported_recall,correction_success_rate,hallucination_reduction,support_improvement,unsafe_correction_rate,no_change_rate
+retrieval,bm25-only retrieval,1.0,0.985,0.92,0.97,,,,,,,,,,,,
+retrieval,dense-only retrieval,0.74,0.74,0.6167,0.83,,,,,,,,,,,,
+retrieval,hybrid retrieval,1.0,1.0,0.8933,0.96,,,,,,,,,,,,
+detection,similarity-only detection,,,,,,0.92,0.9375,1.0,0.9677,0.6189,1.0,,,,,
+detection,similarity + factual rules,,,,,,0.92,0.9375,1.0,0.9677,0.6189,1.0,,,,,
+detection,similarity + NLI,,,,,NLI disabled/fallback for demo,0.92,0.9375,1.0,0.9677,0.6189,1.0,,,,,
+detection,similarity + factual rules + NLI,,,,,NLI disabled/fallback for demo,0.92,0.9375,1.0,0.9677,0.6189,1.0,,,,,
+full_system,full system with correction,,,,,deterministic evidence-only correction for reproducible local evaluation,,,,,,,0.4,0.685,0.1875,0.0,0.09
