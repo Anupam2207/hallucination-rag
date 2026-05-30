@@ -1,7 +1,5 @@
 from typing import Dict
 
-from src.detection.rule_flags import GENERIC_RULE_CATEGORIES, categorize_rule_flags
-
 
 CRITICAL_UNSUPPORTED_FLAGS = {
     "nli_contradiction",
@@ -21,7 +19,6 @@ CRITICAL_UNSUPPORTED_FLAGS = {
     "open_source_library_not_in_evidence",
     "ecommerce_not_in_evidence",
     "product_review_not_in_evidence",
-    *GENERIC_RULE_CATEGORIES,
 }
 
 
@@ -76,8 +73,6 @@ class HallucinationMetrics:
         count = 0
         for claim in detection_result.get("claims", []) or []:
             flags = set(claim.get("rule_flags", []) or [])
-            flags.update(categorize_rule_flags(flags))
-            flags.update(claim.get("rule_categories", []) or [])
             if claim.get("label") == "unsupported" and flags.intersection(CRITICAL_UNSUPPORTED_FLAGS):
                 count += 1
         return count
@@ -164,24 +159,15 @@ class HallucinationMetrics:
         weak_claim_penalty = round(0.5 * corrected_weak_support, 4)
         corrected_supported_or_weak = HallucinationMetrics.supported_or_weak_ratio(corrected_detection)
         corrected_supported_claim_quality = round(corrected_support - weak_claim_penalty, 4)
-        raw_supported_or_weak = HallucinationMetrics.supported_or_weak_ratio(raw_detection)
-        already_supported_preserved = (
-            status == "no_change"
-            and correction_safety_passed
-            and raw_supported_or_weak >= 0.85
-            and corrected_supported_or_weak >= 0.85
-            and raw_critical == 0
-            and corrected_critical == 0
-            and corrected_hallucination <= raw_hallucination
-        )
-        corrected_successfully = (
+        # Success is intentionally stricter than status. A partially improved
+        # answer can be safer than the raw answer but still not a full correction.
+        correction_success = (
             status == "improved"
             and correction_safety_passed
             and corrected_hallucination <= raw_hallucination
-            and corrected_supported_or_weak > 0
+            and corrected_support > 0
             and (improvement > 0 or hallucination_reduction > 0 or raw_critical > corrected_critical)
         )
-        correction_success = already_supported_preserved or corrected_successfully
 
         return {
             "raw_support_ratio": raw_support,

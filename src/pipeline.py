@@ -1,27 +1,20 @@
 import re
 from typing import Any, Dict, List
 
-from src.config import get_config_value, get_first_config_value
+from src.config import get_config_value
 from src.detection.detector import HallucinationDetector
 from src.detection.factual_consistency import extract_capitalized_entities, extract_dates, extract_numbers, extract_years
 from src.detection.support_scorer import SupportScorer
 from src.detection.nli_verifier import NLIVerifier
-from src.detection.rule_flags import categorize_rule_flags
 from src.evaluation.metrics import CRITICAL_UNSUPPORTED_FLAGS, HallucinationMetrics
 from src.generation.base_answer import BaseAnswerGenerator
-from src.generation.correction import AnswerCorrector, INSUFFICIENT_EVIDENCE_RESPONSE
+from src.generation.correction import AnswerCorrector
 from src.generation.ollama_client import OllamaClient, OllamaServiceError
 from src.logger import get_logger
 from src.retrieval.embedder import EmbeddingModel
-from src.retrieval.evidence_intent import (
-    FACTUAL,
-    annotate_evidence_list,
-    is_credible_support_evidence,
-    is_strict_factual_query,
-)
 from src.retrieval.hybrid_retriever import HybridRetriever
-from src.retrieval.query_focus import extract_query_focus, has_topical_match
 from src.retrieval.retriever import SemanticRetriever
+from src.retrieval.query_focus import extract_query_focus, has_topical_match, is_pdf_source, topical_score
 from src.utils.text_cleaning import normalize_for_detection, remove_display_citations
 
 
@@ -47,18 +40,13 @@ class HallucinationRAGPipeline:
         )
         self.retrieval_mode = mode
         self.answerability_threshold = float(
-            get_first_config_value(
-                ("settings", "retrieval", "answerability_threshold"),
-                ("settings", "detection", "answerability_threshold"),
-                default=0.45,
-            )
+            get_config_value("settings", "retrieval", "answerability_threshold", default=0.45)
         )
 
     @staticmethod
     def _evidence_strength(item: Dict[str, Any]) -> float:
-        # Credibility is preferred over raw retrieval score because it includes
-        # intent, source authority, factual assertions, and example penalties.
-        for key in ("evidence_credibility_score", "final_score", "weighted_score", "dense_similarity", "similarity"):
+        # Hybrid final_score is already normalized to 0..1-ish. Prefer it.
+        for key in ("final_score", "weighted_score", "dense_similarity", "similarity"):
             value = item.get(key)
             if value is not None:
                 try:
@@ -72,38 +60,21 @@ class HallucinationRAGPipeline:
             return 0.0
 
     @classmethod
-    def _is_answerable_by_score(
-        cls,
-        evidence: List[Dict[str, Any]],
-        threshold: float,
-        strict_factual_mode: bool = False,
-    ) -> bool:
+    def _is_answerable_by_score(cls, evidence: List[Dict[str, Any]], threshold: float, query: str = "") -> bool:
         if not evidence:
             return False
-        annotated = annotate_evidence_list(evidence)
-        credible = [
-            item for item in annotated
-            if is_credible_support_evidence(item, min_credibility=0.20, strict_factual_mode=strict_factual_mode)
-        ]
-        if not credible:
-            return False
-        if strict_factual_mode and not any(item.get("evidence_type") == FACTUAL for item in credible):
-            return False
-        return max(cls._evidence_strength(item) for item in credible) >= threshold
-
-    @classmethod
-    def _aggregate_evidence_confidence(cls, evidence: List[Dict[str, Any]]) -> float:
-        if not evidence:
-            return 0.0
-        return round(max(cls._evidence_strength(item) for item in evidence), 4)
-
-    @staticmethod
-    def _answer_confidence(evidence_confidence: float, detection: Dict[str, Any]) -> float:
-        try:
-            support = float(detection.get("average_support_score", 0.0) or 0.0)
-        except (TypeError, ValueError):
-            support = 0.0
-        return round(max(0.0, min(1.0, evidence_confidence, support)), 4)
+        if max(cls._evidence_strength(item) for item in evidence) >= threshold:
+            return True
+        # Do not return "no evidence" merely because dense cosine scores are
+        # modest. If a PDF chunk explicitly matches the query focus, it is usable
+        # evidence and claim analysis can decide whether the raw answer is supported.
+        if query:
+            focus = extract_query_focus(query)
+            for item in evidence:
+                metadata = item.get("metadata", {}) or {}
+                if is_pdf_source(metadata) and has_topical_match(str(item.get("text", "")), metadata, focus):
+                    return True
+        return False
 
     @staticmethod
     def _combined_evidence_text(evidence: List[Dict[str, Any]]) -> str:
@@ -117,30 +88,14 @@ class HallucinationRAGPipeline:
         fact_patterns = (
             "introduced", "invented", "created", "proposed", "released", "published",
             "launched", "developed", "won", "began", "started", "founded", "built",
-            "established", "headquartered", "located", "which year", "when", "who",
-            "where", "date", "year",
+            "which year", "when", "who", "where", "date", "year",
         )
         return any(pattern in clean for pattern in fact_patterns)
 
     @staticmethod
     def _specific_fact_supported_by_evidence(query: str, evidence: List[Dict[str, Any]]) -> tuple[bool, str | None]:
         clean_query = normalize_for_detection(query)
-        strict_mode = is_strict_factual_query(query)
-        annotated = annotate_evidence_list(evidence, query=query)
-        credible = [
-            item for item in annotated
-            if is_credible_support_evidence(item, min_credibility=0.20, strict_factual_mode=strict_mode)
-        ]
-        if strict_mode:
-            focus = extract_query_focus(query)
-            credible = [
-                item for item in credible
-                if item.get("evidence_type") == FACTUAL
-                and has_topical_match(str(item.get("text", "")), item.get("metadata", {}) or {}, focus)
-            ]
-            if not credible:
-                return False, "insufficient_evidence_for_specific_fact"
-        evidence_text = normalize_for_detection(HallucinationRAGPipeline._combined_evidence_text(credible))
+        evidence_text = normalize_for_detection(HallucinationRAGPipeline._combined_evidence_text(evidence))
         query_years = set(extract_years(clean_query))
         evidence_years = set(extract_years(evidence_text))
         query_dates = set(extract_dates(clean_query))
@@ -156,42 +111,23 @@ class HallucinationRAGPipeline:
             if not query_numbers.issubset(evidence_numbers):
                 return False, "insufficient_evidence_for_specific_fact"
         lower = clean_query.lower()
-        asks_year = any(token in lower for token in (
-            "when", "which year", "introduced", "released", "published", "launched",
-            "invented", "created", "developed", "founded", "established", "built", "year"
-        ))
+        asks_year = any(token in lower for token in ("when", "which year", "introduced", "released", "published", "launched"))
         if asks_year and not evidence_years and not query_years:
             return False, "insufficient_evidence_for_specific_fact"
 
-        asks_who_relation = any(pattern in lower for pattern in (
-            "who introduced", "who invented", "who proposed", "who created", "who developed",
-            "who founded", "who established", "who launched", "who built", "who published",
+        asks_who_intro = any(pattern in lower for pattern in (
+            "who introduced", "who invented", "who proposed", "who created", "who developed"
         ))
-        entities = set(extract_capitalized_entities(evidence_text))
-        stop_entities = {
-            "RAG", "Retrieval", "Augmented", "Generation", "ColBERT", "TruthfulQA",
-            "DPR", "REALM", "BM25", "LLM", "The", "This", "It",
-        }
-        meaningful_entities = {entity for entity in entities if entity not in stop_entities}
-        if asks_who_relation:
+        if asks_who_intro:
+            entities = set(extract_capitalized_entities(evidence_text))
             # Require at least one person/organization-like entity beyond the
             # target acronym/name and at least one relation word in evidence.
             relation_present = any(term in evidence_text.lower() for term in (
-                "introduced", "invented", "proposed", "created", "developed", "authored",
-                "written by", "founded", "established", "launched", "built", "published by"
+                "introduced", "invented", "proposed", "created", "developed", "authored", "written by"
             ))
+            stop_entities = {"RAG", "Retrieval", "Augmented", "Generation", "ColBERT", "TruthfulQA"}
+            meaningful_entities = {entity for entity in entities if entity not in stop_entities}
             if not relation_present or not meaningful_entities:
-                return False, "insufficient_evidence_for_specific_fact"
-
-        asks_where_relation = lower.startswith("where") or any(pattern in lower for pattern in (
-            "where was", "where were", "where is", "where are", "founded where", "introduced where"
-        ))
-        if asks_where_relation:
-            location_relation_present = any(term in evidence_text.lower() for term in (
-                "founded in", "founded at", "established in", "established at",
-                "introduced in", "launched in", "located in", "based in", "headquartered in"
-            ))
-            if not location_relation_present or not meaningful_entities:
                 return False, "insufficient_evidence_for_specific_fact"
         return True, None
 
@@ -227,8 +163,6 @@ class HallucinationRAGPipeline:
     @staticmethod
     def _claim_has_critical_flags(claim_result: Dict[str, Any]) -> bool:
         flags = set(claim_result.get("rule_flags", []) or [])
-        flags.update(categorize_rule_flags(flags))
-        flags.update(claim_result.get("rule_categories", []) or [])
         return bool(flags.intersection(CRITICAL_UNSUPPORTED_FLAGS)) or claim_result.get("nli_label") == "contradiction"
 
     @staticmethod
@@ -270,7 +204,7 @@ class HallucinationRAGPipeline:
         critical_claims = [
             claim for claim in corrected_detection.get("claims", [])
             if claim.get("label") == "unsupported"
-            and self._claim_has_critical_flags(claim)
+            and (self._claim_has_critical_flags(claim) or float(claim.get("support_score", 0.0) or 0.0) < 0.40)
         ]
         # For non-RAG queries, remove generic RAG boilerplate even if the claim
         # extractor did not classify it as critical.
@@ -306,47 +240,9 @@ class HallucinationRAGPipeline:
 
         if kept_sentences:
             repaired = " ".join(kept_sentences).strip()
-            if AnswerCorrector._is_malformed_answer(repaired):
-                repaired = INSUFFICIENT_EVIDENCE_RESPONSE
         else:
-            repaired = INSUFFICIENT_EVIDENCE_RESPONSE
-        if not removed:
-            return corrected_answer, False, []
+            repaired = "Insufficient evidence available in the knowledge base to provide a supported corrected answer."
         return repaired, True, removed
-
-
-    @classmethod
-    def _fallback_answer_from_evidence(cls, query: str, evidence: List[Dict[str, Any]]) -> str:
-        """Build a small evidence-only answer when the local LLM is unavailable."""
-        relation_answer = AnswerCorrector._deterministic_relation_answer(query, evidence)
-        if relation_answer:
-            return relation_answer
-        sentences: list[str] = []
-        for item in evidence:
-            if item.get("evidence_type") in {"EXAMPLE", "REFERENCE", "NOISE"}:
-                continue
-            text = normalize_for_detection(str(item.get("text", "")))
-            text = re.sub(r"^#+\s*", "", text).strip()
-            text = re.sub(r"^(Retrieval[- ]Augmented Generation)\s+\1\b", r"\1", text, flags=re.IGNORECASE)
-            for sentence in cls._split_sentences(text):
-                if len(sentence.split()) < 5:
-                    continue
-                sentences.append(sentence)
-                if len(sentences) >= 3:
-                    answer = " ".join(sentences).strip()
-                    return answer if re.search(r"[.!?]$", answer) else answer + "."
-        return INSUFFICIENT_EVIDENCE_RESPONSE
-
-    @staticmethod
-    def _supported_or_weak_ratio(detection: Dict[str, Any]) -> float:
-        count = int(detection.get("claim_count", 0) or 0)
-        if count <= 0:
-            return 0.0
-        return (int(detection.get("supported_count", 0) or 0) + int(detection.get("weak_count", 0) or 0)) / count
-
-    @staticmethod
-    def _is_insufficient_answer(answer: str) -> bool:
-        return (answer or "").strip().lower().startswith("insufficient evidence")
 
     def _safe_return(self, query: str, evidence: List[Dict[str, Any]], warnings: List[str], status: str) -> Dict[str, Any]:
         safe_response = self._safe_insufficient_response(query)
@@ -355,12 +251,8 @@ class HallucinationRAGPipeline:
         return {
             "query": query,
             "retrieval_mode": self.retrieval_mode,
-            "strict_factual_mode": is_strict_factual_query(query),
             "answerable": False,
             "answerability_status": status,
-            "evidence_confidence": self._aggregate_evidence_confidence(evidence),
-            "raw_answer_confidence": 0.0,
-            "corrected_answer_confidence": 0.0,
             "warnings": warnings,
             "evidence": evidence,
             "raw_answer": safe_response,
@@ -380,23 +272,14 @@ class HallucinationRAGPipeline:
             raise ValueError("Query must not be empty.")
 
         warnings: List[str] = []
-        strict_factual_mode = is_strict_factual_query(query)
-        retrieved = self.retriever.retrieve(query, top_k=top_k)
-        evidence = self._add_evidence_ids(annotate_evidence_list(retrieved, query=query))
+        evidence = self._add_evidence_ids(self.retriever.retrieve(query, top_k=top_k))
         if not evidence:
             warnings.append("No evidence was retrieved. Build the index or expand the knowledge base for better results.")
 
-        evidence_confidence = self._aggregate_evidence_confidence(evidence)
-        answerable_by_score = self._is_answerable_by_score(
-            evidence,
-            self.answerability_threshold,
-            strict_factual_mode=strict_factual_mode,
-        )
+        answerable_by_score = self._is_answerable_by_score(evidence, self.answerability_threshold, query=query)
         specific_supported, specific_warning = self._specific_fact_supported_by_evidence(query, evidence)
         if specific_warning:
             warnings.append(specific_warning)
-        if not answerable_by_score:
-            warnings.append("no_factual_or_credible_evidence")
 
         if not answerable_by_score:
             if "insufficient_evidence" not in warnings:
@@ -409,27 +292,10 @@ class HallucinationRAGPipeline:
         try:
             raw_answer = self.generator.generate_answer(query)
         except OllamaServiceError as exc:
-            raw_answer = self._fallback_answer_from_evidence(query, evidence)
+            raw_answer = f"LLM generation failed: {exc}"
             warnings.append("llm_generation_failed")
-            warnings.append(f"used_evidence_only_generation_fallback: {exc}")
 
         raw_detection = self.detector.detect(raw_answer, evidence)
-
-        correction_action = "not_needed"
-        raw_supported_or_weak = self._supported_or_weak_ratio(raw_detection)
-        raw_claim_count = int(raw_detection.get("claim_count", 0) or 0)
-        raw_unsupported_count = int(raw_detection.get("unsupported_count", 0) or 0)
-        raw_critical_count = sum(
-            1 for claim in raw_detection.get("claims", []) or []
-            if claim.get("label") == "unsupported" and self._claim_has_critical_flags(claim)
-        )
-
-        raw_is_already_supported = (
-            raw_claim_count > 0
-            and raw_unsupported_count == 0
-            and raw_supported_or_weak >= 0.85
-            and raw_critical_count == 0
-        )
 
         if not correction_enabled:
             corrected_answer_cited = raw_answer
@@ -437,86 +303,25 @@ class HallucinationRAGPipeline:
             corrected_detection = raw_detection
             repaired = False
             removed: List[Dict[str, Any]] = []
-            correction_action = "disabled"
             if "correction_disabled" not in warnings:
                 warnings.append("correction_disabled")
-        elif raw_is_already_supported:
-            # Simple, safe behavior: if the raw LLM answer is already grounded,
-            # keep it. Do not call correction and risk making it worse.
-            corrected_answer_cited = raw_answer
-            corrected_answer = raw_answer
-            corrected_detection = raw_detection
-            repaired = False
-            removed = []
-            correction_action = "not_needed"
         else:
-            correction_action = "corrected"
-            try:
-                corrected_answer_cited = self.corrector.correct(query, raw_answer, evidence)
-            except OllamaServiceError as exc:
-                corrected_answer_cited = self._fallback_answer_from_evidence(query, evidence)
-                warnings.append("correction_generation_failed_used_evidence_fallback")
-                warnings.append(str(exc))
+            corrected_answer_cited = self.corrector.correct(query, raw_answer, evidence)
             corrected_answer = remove_display_citations(corrected_answer_cited)
-            if self._is_insufficient_answer(corrected_answer):
-                fallback_answer = self._fallback_answer_from_evidence(query, evidence)
-                if fallback_answer and not self._is_insufficient_answer(fallback_answer):
-                    corrected_answer_cited = fallback_answer
-                    corrected_answer = fallback_answer
-                    warnings.append("insufficient_correction_replaced_with_evidence_fallback")
+            corrected_detection = self.detector.detect(corrected_answer, evidence)
 
-            # Guardrail: a supported raw answer must never be replaced by an
-            # insufficient-evidence or empty correction.
-            if raw_supported_or_weak >= 0.75 and self._is_insufficient_answer(corrected_answer):
-                corrected_answer_cited = raw_answer
-                corrected_answer = raw_answer
-                corrected_detection = raw_detection
-                repaired = False
-                removed = []
-                correction_action = "not_needed"
-                warnings.append("correction_reverted_to_supported_raw_answer")
-            else:
+            repaired_answer, repaired, removed = self._repair_corrected_answer(corrected_answer, corrected_detection, query)
+            if repaired:
+                corrected_answer = repaired_answer
                 corrected_detection = self.detector.detect(corrected_answer, evidence)
-                repaired_answer, repaired, removed = self._repair_corrected_answer(corrected_answer, corrected_detection, query)
-                if repaired:
-                    corrected_answer = repaired_answer
-                    corrected_detection = self.detector.detect(corrected_answer, evidence)
-
-                if (not corrected_detection.get("claim_count")) and raw_supported_or_weak >= 0.75:
-                    corrected_answer_cited = raw_answer
-                    corrected_answer = raw_answer
-                    corrected_detection = raw_detection
-                    repaired = False
-                    removed = []
-                    correction_action = "not_needed"
-                    warnings.append("empty_correction_reverted_to_supported_raw_answer")
-                elif AnswerCorrector._is_malformed_answer(corrected_answer):
-                    corrected_answer = INSUFFICIENT_EVIDENCE_RESPONSE
-                    corrected_answer_cited = INSUFFICIENT_EVIDENCE_RESPONSE
-                    corrected_detection = self._empty_detection()
-                    repaired = True
-                    correction_action = "refused"
-                    warnings.append("malformed_corrected_answer_replaced")
 
         metrics = HallucinationMetrics.summarize(raw_detection, corrected_detection)
-        metrics["correction_action"] = correction_action
-        if correction_action == "not_needed":
-            metrics["correction_success"] = True
-            metrics["correction_status"] = "no_change"
-        elif correction_action == "refused" and not answerable_by_score:
-            metrics["correction_success"] = True
-        raw_answer_confidence = self._answer_confidence(evidence_confidence, raw_detection)
-        corrected_answer_confidence = self._answer_confidence(evidence_confidence, corrected_detection)
 
         return {
             "query": query,
             "retrieval_mode": self.retrieval_mode,
-            "strict_factual_mode": strict_factual_mode,
             "answerable": True,
             "answerability_status": "answerable",
-            "evidence_confidence": evidence_confidence,
-            "raw_answer_confidence": raw_answer_confidence,
-            "corrected_answer_confidence": corrected_answer_confidence,
             "warnings": warnings,
             "evidence": evidence,
             "raw_answer": raw_answer,

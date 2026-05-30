@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import pandas as pd
 
 
-VISIBLE_CLAIM_COLUMNS = ["claim_preview", "label", "support_score", "rule_flags", "nli_label"]
+VISIBLE_CLAIM_COLUMNS = ["claim_preview", "label", "support_score", "semantic_score", "lexical_score", "entailment_score", "rule_flags", "nli_label"]
 
 
 def _preview(text: Any, limit: int = 120) -> str:
@@ -22,6 +22,9 @@ def claims_to_dataframe(claims: List[Dict[str, Any]], compact: bool = True) -> p
             "support_score": round(float(item.get("support_score", 0.0)), 3),
             "rule_flags": ", ".join(item.get("rule_flags", [])),
             "raw_similarity": round(float(item.get("raw_similarity_score") or 0.0), 3),
+            "semantic_score": round(float(item.get("semantic_score") or 0.0), 3),
+            "lexical_score": round(float(item.get("lexical_score") or 0.0), 3),
+            "entailment_score": round(float(item.get("entailment_score") or 0.0), 3),
             "composite_score": round(float(item.get("composite_support_score") or 0.0), 3) if item.get("composite_support_score") is not None else "",
             "nli_label": item.get("nli_label", ""),
             "nli_adjusted_label": item.get("nli_adjusted_label", ""),
@@ -47,6 +50,9 @@ def evidence_to_dataframe(evidence_list: List[Dict[str, Any]]) -> pd.DataFrame:
                 "rank": index,
                 "method": item.get("retrieval_method", "dense"),
                 "source": metadata.get("source_rel") or metadata.get("file_name") or item.get("chunk_id", "unknown"),
+                "topical_score": _round_optional(item.get("topical_score")),
+                "source_quality": _round_optional(item.get("source_quality")),
+                "rejection_reason": item.get("rejection_reason", ""),
                 "final_score": _round_optional(item.get("final_score")),
                 "weighted_score": _round_optional(item.get("weighted_score")),
                 "rrf_score": _round_optional(item.get("rrf_score")),

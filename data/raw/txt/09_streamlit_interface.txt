@@ -1,0 +1,1 @@
+A Streamlit demo for this project should show the user query, the raw answer, the retrieved evidence, the claim-level support analysis, the corrected answer, and summary metrics. This makes the project easier to demonstrate in a viva because the pipeline remains visible instead of hidden behind a single final response.

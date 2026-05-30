@@ -1,8 +1,7 @@
 project:
   name: Hallucination Detection and Correction in LLMs using RAG
-  version: 0.3.0
+  version: 0.2.0
   random_seed: 42
-
 paths:
   raw_data_dir: data/raw
   processed_data_dir: data/processed
@@ -13,8 +12,6 @@ paths:
   predictions_dir: outputs/predictions
   reports_dir: outputs/reports
   figures_dir: outputs/figures
-  paper_artifacts_dir: paper_artifacts
-
 retrieval:
   collection_name: rag_knowledge
   mode: hybrid
@@ -22,8 +19,8 @@ retrieval:
   chunk_overlap: 100
   top_k: 4
   claim_top_k: 3
-  dense_top_k: 8
-  sparse_top_k: 8
+  dense_top_k: 12
+  sparse_top_k: 12
   rrf_k: 60
   bm25_k1: 1.5
   bm25_b: 0.75
@@ -33,62 +30,45 @@ retrieval:
   topical_weight: 0.15
   content_weight: 0.7
   rrf_weight: 0.3
-  min_topical_score: 0.15
-  answerability_threshold: 0.45
+  min_topical_score: 0.10
+  answerability_threshold: 0.25
   enable_reranker: false
   reranker_model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
   reranker_device: "cpu"
   rerank_top_n: 20
   final_top_k: 5
-
 detection:
-  # Preferred names used in the paper and new scripts.
-  support_threshold: 0.70
-  weak_support_threshold: 0.45
-  answerability_threshold: 0.45
-  nli_entailment_threshold: 0.60
-  nli_contradiction_threshold: 0.60
-  nli_neutral_threshold: 0.65
-  atomic_claim_splitting_enabled: true
-  enable_nli: false
-  # Backward-compatible aliases used by older code/tests.
   similarity_support_threshold: 0.70
   similarity_warning_threshold: 0.45
-
+  enable_nli: true
+  nli_entailment_threshold: 0.6
+  nli_contradiction_threshold: 0.6
+  nli_neutral_threshold: 0.65
 generation:
   max_context_chunks: 4
   temperature: 0.2
   max_tokens: 512
-
 ui:
   show_debug_info: true
-
 runtime:
-  profile: demo
   hardware_profile: low_resource
   max_batch_workers: 1
   max_llm_workers: 1
   max_nli_workers: 1
-  allow_embedding_hash_fallback: true
-  embedding_backend: hash
 
 verification:
-  enable_nli: false
+  enable_nli: true
   nli_model: "cross-encoder/nli-deberta-v3-small"
   nli_device: "cpu"
   nli_max_evidence_chars: 900
   nli_min_similarity_to_run: 0.0
-  nli_label_order: ["contradiction", "entailment", "neutral"]
   nli_cache_enabled: true
-  nli_entailment_threshold: 0.60
-  nli_contradiction_threshold: 0.60
   nli_contradiction_relevance_threshold: 0.35
-
 knowledge_base:
   mode: demo
+  pdf_only: false
   include_research_pdfs: false
   clean_pdf_keywords:
-    - Lewis_RAG
     - fact_verification
     - colbert_retrieval_model
     - causes_of_hallucination

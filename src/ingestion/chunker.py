@@ -190,9 +190,8 @@ def create_chunk_records(document: Dict[str, Any], chunk_size: int, chunk_overla
     chunk_items = chunk_text_with_metadata(document["text"], chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     records: List[Dict[str, Any]] = []
     document_title = document.get("document_title") or document.get("file_name", "Untitled")
-    title_pattern = re.compile(rf"^#*\s*{re.escape(str(document_title))}\s+", re.IGNORECASE)
     for index, chunk_item in enumerate(chunk_items):
-        chunk_text_value = title_pattern.sub("", chunk_item["text"]).strip()
+        chunk_text_value = chunk_item["text"]
         chunk_id = f"{document['doc_id']}_chunk_{index}"
         records.append(
             {

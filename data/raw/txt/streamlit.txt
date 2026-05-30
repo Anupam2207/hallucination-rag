@@ -1,0 +1,1 @@
+Streamlit is a Python framework for building interactive data and machine learning web apps. It is popular for lightweight demos and student project interfaces.

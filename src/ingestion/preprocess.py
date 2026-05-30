@@ -72,14 +72,6 @@ def clean_text(text: str) -> str:
         if in_references:
             continue
 
-        # Keep metadata in document metadata, not in chunk text.  This avoids
-        # generic tokens such as "Domain:" polluting retrieval.  The real
-        # phrase "Domain Name System" is preserved because it is not a
-        # key-value metadata line.
-        line = re.sub(r"\s+(domain|category|topic|keywords?|tags?)\s*:\s*[^#\n]+$", "", line, flags=re.IGNORECASE).strip()
-        if re.match(r"^(domain|category|topic|keywords?|tags?)\s*:\s*", line, flags=re.IGNORECASE):
-            continue
-
         if _PAGE_NUMBER_RE.match(line):
             continue
         if _URL_RE.search(line) or _DOI_RE.search(line) or _ARXIV_RE.search(line):

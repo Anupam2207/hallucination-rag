@@ -1,0 +1,1 @@
+A vector database stores embedding vectors and supports nearest-neighbor search. ChromaDB is a lightweight option for student projects because it supports local persistence and simple Python usage. After chunk embeddings are stored, the retriever can search the collection and return the top-k most relevant passages for a query.

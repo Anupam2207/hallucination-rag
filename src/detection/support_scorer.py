@@ -1,5 +1,5 @@
 import re
-from typing import Any
+from typing import Any, Dict, List, Tuple
 
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -8,17 +8,62 @@ from src.detection.factual_consistency import (
     extract_years,
     run_factual_consistency_checks,
 )
-from src.detection.rule_flags import categorize_rule_flags
 from src.retrieval.embedder import EmbeddingModel
-from src.retrieval.evidence_intent import (
-    FACTUAL,
-    annotate_evidence,
-    is_credible_support_evidence,
-)
+from src.retrieval.query_focus import ALIAS_MAP, normalize_text, text_contains_known_topic
 from src.utils.text_cleaning import normalize_for_detection
 
 
+CONCEPT_MAP: Dict[str, List[str]] = {
+    "rag": ["retrieval", "generation", "retriever", "generator", "external knowledge", "knowledge source", "passages", "grounded", "context"],
+    "colbert": ["late interaction", "bert", "token", "embeddings", "retrieval", "passage", "query", "document"],
+    "mfa": ["factor", "password", "pin", "phone", "token", "biometric", "identity", "authentication", "security"],
+    "formula 1": ["formula", "drivers", "constructors", "championship", "grand prix", "season", "racing"],
+    "vehicle safety": ["seat belt", "airbag", "brake", "collision", "safety", "driver", "passenger"],
+    "smartphone": ["mobile", "touchscreen", "app", "internet", "camera", "processor", "communication"],
+    "ai newsroom": ["newsroom", "journalism", "editor", "article", "automation", "reporting", "news"],
+    "ancient indian architecture": ["temple", "stupa", "rock cut", "architecture", "indian", "monument", "stone"],
+    "hallucination": ["unsupported", "false", "claim", "evidence", "model", "factual", "generated"],
+    "fact verification": ["claim", "evidence", "support", "nli", "entailment", "contradiction", "verification"],
+    "black hole": ["gravity", "light", "escape", "event horizon", "spacetime", "massive stars"],
+    "crop rotation": ["different crops", "same field", "planned sequence", "seasons", "soil fertility", "pest", "yields"],
+    "crispr": ["gene editing", "dna", "cas9", "guide rna", "targeted changes", "bacterial immune"],
+    "eiffel tower": ["iron lattice", "paris", "gustave eiffel", "1889", "exposition universelle", "champ de mars"],
+    "kubernetes": ["orchestrate containers", "containers", "clusters"],
+    "phishing": ["suspicious links", "attachments", "sender addresses", "verification codes", "spear phishing"],
+}
+
+CRITICAL_FLAGS = {
+    "numeric_mismatch_with_evidence",
+    "claim_year_not_supported_by_evidence",
+    "claim_date_not_supported_by_evidence",
+    "claim_numeric_not_supported_by_evidence",
+    "entity_mismatch_with_evidence",
+    "fine_tuning_not_in_evidence",
+    "unsupported_task_example_not_in_evidence",
+    "training_data_requirement_not_in_evidence",
+    "performance_comparison_not_in_evidence",
+    "interpretability_not_in_evidence",
+    "acronym_expansion_mismatch",
+    "definition_mismatch_with_evidence",
+    "collaborative_filtering_not_in_evidence",
+    "recommendation_system_not_in_evidence",
+    "collaborative_bert_not_in_evidence",
+    "open_source_library_not_in_evidence",
+    "ecommerce_not_in_evidence",
+    "product_review_not_in_evidence",
+}
+
+
 class SupportScorer:
+    """Claim-evidence scorer with explicit semantic and lexical components.
+
+    This class intentionally does not perform NLI. It returns a clean evidence
+    support profile that the detector fuses with NLI:
+        FinalSupport = 0.30 semantic + 0.25 lexical + 0.45 entailment
+    Rule flags are returned separately so hard factual mismatches can override
+    otherwise high semantic similarity.
+    """
+
     def __init__(self, embedder: EmbeddingModel | None = None) -> None:
         self.embedder = embedder or EmbeddingModel()
 
@@ -37,10 +82,11 @@ class SupportScorer:
             "and", "or", "of", "to", "in", "on", "for", "with", "by", "as", "at",
             "from", "that", "this", "it", "its", "into", "than", "then", "while",
             "using", "use", "used", "uses", "both", "these", "those", "can", "could",
-            "would", "should", "typically", "several", "various", "including",
+            "would", "should", "typically", "several", "various", "including", "include",
+            "common", "commonly", "also", "more", "most", "such", "called", "known",
         }
-        words = re.findall(r"[a-zA-Z][a-zA-Z\-]{2,}", text.lower())
-        return {word for word in words if word not in stopwords}
+        words = re.findall(r"[a-zA-Z][a-zA-Z\-]{2,}|\b(?:19|20)\d{2}\b", normalize_for_detection(text).lower())
+        return {word.strip("-") for word in words if word not in stopwords and len(word.strip("-")) > 1}
 
     @staticmethod
     def _exact_support_score(claim: str, evidence: str) -> float:
@@ -49,217 +95,133 @@ class SupportScorer:
         if not clean_claim or not clean_evidence:
             return 0.0
         if clean_claim in clean_evidence:
-            return 0.96
-        # Useful when the evidence sentence is slightly shorter than the claim.
-        claim_tokens = set(re.findall(r"[a-zA-Z][a-zA-Z]{2,}", clean_claim))
-        evidence_tokens = set(re.findall(r"[a-zA-Z][a-zA-Z]{2,}", clean_evidence))
-        if len(claim_tokens) >= 6 and claim_tokens.issubset(evidence_tokens):
-            return 0.90
+            return 1.0
+        claim_tokens = set(re.findall(r"[a-zA-Z][a-zA-Z]{2,}|\b(?:19|20)\d{2}\b", clean_claim))
+        evidence_tokens = set(re.findall(r"[a-zA-Z][a-zA-Z]{2,}|\b(?:19|20)\d{2}\b", clean_evidence))
+        if len(claim_tokens) >= 5 and claim_tokens.issubset(evidence_tokens):
+            return 0.92
         return 0.0
 
     def lexical_overlap_score(self, claim: str, evidence: str) -> float:
-        claim_tokens = self._tokens(normalize_for_detection(claim))
-        evidence_tokens = self._tokens(normalize_for_detection(evidence))
+        claim_tokens = self._tokens(claim)
+        evidence_tokens = self._tokens(evidence)
         if not claim_tokens or not evidence_tokens:
             return 0.0
         overlap = claim_tokens.intersection(evidence_tokens)
-        if len(overlap) < 3:
+        if len(overlap) < 2 and len(claim_tokens) > 3:
             return 0.0
         recall = len(overlap) / len(claim_tokens)
         precision = len(overlap) / len(evidence_tokens)
-        if recall + precision == 0:
-            return 0.0
-        return 2 * recall * precision / (recall + precision)
-
-
-    @staticmethod
-    def _concepts(text: str) -> set[str]:
-        """Return lightweight meaning concepts used for paraphrase support.
-
-        This intentionally stays small and deterministic.  It is not a new
-        model; it just maps common equivalent phrases in the project corpus to
-        the same concept so valid paraphrases are not marked unsupported only
-        because wording differs.
-        """
-        lower = normalize_for_detection(text).lower()
-        concepts: set[str] = set()
-
-        if re.search(r"\b(?:mfa|multi[- ]factor authentication)\b", lower):
-            concepts.add("mfa_topic")
-
-        if re.search(r"\b(?:two or more|multiple|more than one)\b.{0,60}\b(?:factor|factors|verification|verifications|forms?)\b", lower):
-            concepts.add("more_than_one_factor")
-        if re.search(r"\b(?:prove identity|provide verification|forms? of verification|verification factors?)\b", lower):
-            concepts.add("identity_verification")
-
-        if "something you know" in lower or re.search(r"\b(?:passwords?|pins?|passphrases?|security questions?)\b", lower):
-            concepts.add("knowledge_factor")
-        if "something you have" in lower or re.search(r"\b(?:phones?|smartphones?|mobile devices?|tokens?|smartcards?|smart cards?|hardware tokens?|physical devices?)\b", lower):
-            concepts.add("possession_factor")
-        if "something you are" in lower or re.search(r"\b(?:biometrics?|biometric traits?|fingerprints?|face|facial recognition|voice recognition|voice)\b", lower):
-            concepts.add("biometric_factor")
-        if "somewhere you are" in lower or re.search(r"\b(?:location[- ]based|geolocation|location factor)\b", lower):
-            concepts.add("location_factor")
-
-        if re.search(r"\b(?:stolen passwords?|stolen credentials|unauthorized access|extra layer|additional layer|security improvement|improves security|protect sensitive|harder for attackers|difficult for attackers|not enough to access|defeat the second factor)\b", lower):
-            concepts.add("security_improvement")
-
-        if re.search(r"\b(?:authenticator apps?|hardware security keys?|sms codes?|email codes?|biometric prompts?)\b", lower):
-            concepts.add("mfa_methods")
-
-        if re.search(r"\b(?:online banking|email accounts?|enterprise networks?)\b", lower):
-            concepts.add("specific_applications")
-
-        return concepts
-
-    @classmethod
-    def concept_coverage_score(cls, claim: str, evidence: str) -> float:
-        claim_concepts = cls._concepts(claim)
-        evidence_concepts = cls._concepts(evidence)
-        # Topic-only matches are not enough to support a factual claim.
-        claim_specific = {c for c in claim_concepts if c != "mfa_topic"}
-        evidence_specific = {c for c in evidence_concepts if c != "mfa_topic"}
-        if not claim_specific:
-            return 0.0
-        return len(claim_specific & evidence_specific) / len(claim_specific)
+        # Evidence chunks are longer than claims, so recall is more important.
+        # Precision is compressed instead of allowed to dominate the score.
+        precision_component = min(1.0, precision * 3.0)
+        return max(0.0, min(1.0, 0.72 * recall + 0.28 * precision_component))
 
     @staticmethod
     def _missing_specific_evidence_flags(claim: str, evidence_texts: list[str]) -> list[str]:
         clean_claim = normalize_for_detection(claim)
-        clean_evidence_texts = [normalize_for_detection(text) for text in evidence_texts]
+        evidence_lower = " ".join(normalize_for_detection(text) for text in evidence_texts).lower()
         claim_lower = clean_claim.lower()
-        evidence_lower = " ".join(clean_evidence_texts).lower()
         flags: list[str] = []
 
         phrase_groups = {
-            "fine_tuning_not_in_evidence": [
-                "fine-tun", "fine tun", "finetun", "fine tuned", "fine-tuned",
-            ],
-            "machine_translation_not_in_evidence": [
-                "machine translation", "language translation",
-            ],
+            "fine_tuning_not_in_evidence": ["fine-tun", "fine tun", "finetun", "fine tuned", "fine-tuned"],
+            "machine_translation_not_in_evidence": ["machine translation", "language translation"],
             "sentiment_analysis_not_in_evidence": ["sentiment analysis"],
             "text_classification_not_in_evidence": ["text classification"],
             "document_classification_not_in_evidence": ["document classification"],
             "summarization_not_in_evidence": ["text summarization", "summarization"],
             "content_generation_not_in_evidence": ["content generation"],
-            "dialogue_systems_not_in_evidence": [
-                "conversational dialogue", "dialogue system", "dialogue systems", "conversational ai",
-            ],
+            "dialogue_systems_not_in_evidence": ["conversational dialogue", "dialogue system", "dialogue systems", "conversational ai"],
             "training_data_requirement_not_in_evidence": [
                 "training data requirement", "less training data", "reduced training data",
-                "smaller amounts of labeled data", "large amounts of training data",
-                "large amount of training data", "requires training data", "require training data",
-                "labeled data",
+                "smaller amounts of labeled data", "large amounts of training data", "large amount of training data",
+                "requires training data", "require training data", "labeled data",
             ],
-            "explicit_knowledge_representation_not_in_evidence": [
-                "explicit knowledge representation", "knowledge representation",
-            ],
+            "explicit_knowledge_representation_not_in_evidence": ["explicit knowledge representation", "knowledge representation"],
             "style_tone_generation_not_in_evidence": ["style and tone", "tone and style"],
             "performance_comparison_not_in_evidence": [
-                "better than", "outperform", "improved performance", "higher accuracy than",
-                "more efficient than", "perform better than", "superior to", "higher performance",
+                "better than", "outperform", "improved performance", "higher accuracy than", "more efficient than",
+                "perform better than", "superior to", "higher performance",
             ],
             "interpretability_not_in_evidence": [
-                "interpretability", "interpretable", "explainability", "explainable",
-                "transparent", "transparency", "clear understanding", "traceability",
+                "interpretability", "interpretable", "explainability", "explainable", "transparent", "transparency",
+                "clear understanding", "traceability",
             ],
             "collaborative_filtering_not_in_evidence": ["collaborative filtering"],
-            "recommendation_system_not_in_evidence": [
-                "recommendation system", "recommendation systems", "recommendation accuracy",
-            ],
+            "recommendation_system_not_in_evidence": ["recommendation system", "recommendation systems", "recommendation accuracy"],
             "ecommerce_not_in_evidence": ["e-commerce", "ecommerce"],
             "product_review_not_in_evidence": ["product descriptions", "reviews", "product reviews"],
             "collaborative_bert_not_in_evidence": ["collaborative bert"],
             "open_source_library_not_in_evidence": ["open-source library", "open source library"],
-            "location_based_authentication_not_in_evidence": [
-                "location-based authentication", "location based authentication",
-                "somewhere you are", "location factor", "geolocation",
-            ],
-            "specific_application_not_in_evidence": [
-                "online banking", "email accounts", "enterprise networks",
-            ],
         }
 
         task_flags = {
-            "machine_translation_not_in_evidence",
-            "sentiment_analysis_not_in_evidence",
-            "text_classification_not_in_evidence",
-            "document_classification_not_in_evidence",
-            "summarization_not_in_evidence",
-            "content_generation_not_in_evidence",
-            "dialogue_systems_not_in_evidence",
+            "machine_translation_not_in_evidence", "sentiment_analysis_not_in_evidence",
+            "text_classification_not_in_evidence", "document_classification_not_in_evidence",
+            "summarization_not_in_evidence", "content_generation_not_in_evidence", "dialogue_systems_not_in_evidence",
         }
-
         for flag, phrases in phrase_groups.items():
             claim_mentions = any(phrase in claim_lower for phrase in phrases)
             evidence_mentions = any(phrase in evidence_lower for phrase in phrases)
             if claim_mentions and not evidence_mentions:
                 flags.append(flag)
-
         if any(flag in task_flags for flag in flags):
             flags.append("unsupported_task_example_not_in_evidence")
-
         return list(dict.fromkeys(flags))
 
-    def _apply_rule_caps(
-        self,
-        claim: str,
-        all_evidence_texts: list[str],
-        best_evidence: str,
-        score: float,
-    ) -> tuple[float, list[str], dict[str, Any]]:
-        flags = self._missing_specific_evidence_flags(claim, all_evidence_texts)
-        factual_result = run_factual_consistency_checks(claim, best_evidence or "")
-        factual_flags = list(factual_result.get("flags", []))
-        flags.extend(factual_flags)
-        flags = list(dict.fromkeys(flags))
+    @staticmethod
+    def _is_definition_like(text: str) -> bool:
+        lower = normalize_for_detection(text).lower()
+        return bool(re.search(r"\b(is|are|refers to|means|requires|combines|connects|has|have|uses)\b", lower))
 
+    @staticmethod
+    def _concept_overlap_score(claim: str, evidence: str) -> tuple[float, list[str]]:
+        claim_norm = normalize_text(claim)
+        evidence_norm = normalize_text(evidence)
+        claim_topics = text_contains_known_topic(claim)
+        evidence_topics = text_contains_known_topic(evidence)
+        common_topics = claim_topics.intersection(evidence_topics)
+        if not common_topics:
+            # Alias matching may fail when the claim is pronoun-based; use any
+            # topic present in evidence if claim terms overlap strongly.
+            common_topics = evidence_topics
+        matched: list[str] = []
+        for topic in common_topics:
+            for concept in CONCEPT_MAP.get(topic, []):
+                c = normalize_text(concept)
+                if c in claim_norm and c in evidence_norm:
+                    matched.append(concept)
+                else:
+                    tokens = {tok for tok in re.findall(r"[a-z0-9]+", c) if len(tok) > 2}
+                    if tokens and tokens.issubset(set(re.findall(r"[a-z0-9]+", claim_norm))) and tokens.issubset(set(re.findall(r"[a-z0-9]+", evidence_norm))):
+                        matched.append(concept)
+        matched = list(dict.fromkeys(matched))
+        if len(matched) >= 3:
+            return 0.74, matched
+        if len(matched) == 2:
+            return 0.58, matched
+        return 0.0, matched
+
+    @staticmethod
+    def _apply_rule_caps(score: float, flags: list[str]) -> float:
         if not flags:
-            return score, flags, factual_result
-
+            return score
         if "numeric_mismatch_with_evidence" in flags:
-            return min(score, 0.25), flags, factual_result
+            return min(score, 0.25)
         if "entity_mismatch_with_evidence" in flags:
-            return min(score, 0.30), flags, factual_result
-        if any(flag in flags for flag in [
-            "acronym_expansion_mismatch",
-            "definition_mismatch_with_evidence",
-        ]):
-            return min(score, 0.30), flags, factual_result
-        if any(flag in flags for flag in [
-            "claim_year_not_supported_by_evidence", "claim_date_not_supported_by_evidence", "claim_numeric_not_supported_by_evidence"
-        ]):
-            return min(score, 0.35), flags, factual_result
-
-        return min(score, 0.35), flags, factual_result
-
-    def _score_text_pair(self, clean_claim: str, clean_evidence: str, claim_embedding=None) -> tuple[float, float, float]:
-        exact_score = self._exact_support_score(clean_claim, clean_evidence)
-        lexical_score = self.lexical_overlap_score(clean_claim, clean_evidence)
-        concept_score = self.concept_coverage_score(clean_claim, clean_evidence)
-        if claim_embedding is None:
-            claim_embedding = self.embedder.encode([clean_claim])
-        evidence_embedding = self.embedder.encode([clean_evidence])
-        semantic_score = float(cosine_similarity(claim_embedding, evidence_embedding)[0][0])
-        hybrid_score = max(semantic_score, exact_score)
-        if concept_score >= 0.65:
-            hybrid_score = max(hybrid_score, 0.78)
-        elif concept_score >= 0.40:
-            hybrid_score = max(hybrid_score, 0.50)
-        if lexical_score >= 0.55:
-            hybrid_score = max(hybrid_score, lexical_score)
-        return hybrid_score, semantic_score, lexical_score
-
+            return min(score, 0.30)
+        if any(flag in flags for flag in ["acronym_expansion_mismatch", "definition_mismatch_with_evidence"]):
+            return min(score, 0.30)
+        if any(flag in flags for flag in ["claim_year_not_supported_by_evidence", "claim_date_not_supported_by_evidence", "claim_numeric_not_supported_by_evidence"]):
+            return min(score, 0.35)
+        if any(flag in CRITICAL_FLAGS for flag in flags):
+            return min(score, 0.35)
+        return min(score, 0.45)
 
     @staticmethod
     def _factual_exact_match(claim: str, evidence: str, score: float, flags: list[str]) -> bool:
-        """Return True when explicit factual values/entities in the claim are present in evidence.
-
-        This prevents optional NLI ``neutral`` from downgrading claims where the
-        evidence directly contains the same year/person/entity facts.
-        """
-        if flags:
+        if any(flag in CRITICAL_FLAGS for flag in flags):
             return False
         clean_claim = normalize_for_detection(claim)
         clean_evidence = normalize_for_detection(evidence)
@@ -271,202 +233,124 @@ class SupportScorer:
             return False
         claim_entities = set(extract_capitalized_entities(clean_claim))
         evidence_entities = set(extract_capitalized_entities(clean_evidence))
-        # Entity extraction is conservative and noisy; require either strong entity
-        # containment or a high lexical/semantic score.
         if claim_entities:
-            important_entities = {e for e in claim_entities if e.lower() not in {"colbert", "rag", "bert"}}
+            important_entities = {e for e in claim_entities if e.lower() not in {"colbert", "rag", "bert", "mfa"}}
             if important_entities and not important_entities.issubset(evidence_entities):
                 return False
         return bool(claim_years or claim_entities) and score >= 0.45
 
-    @staticmethod
-    def _rank_evidence_for_support(item: dict[str, Any]) -> tuple[float, float, float]:
-        def as_float(key: str) -> float:
-            try:
-                return float(item.get(key, 0.0) or 0.0)
-            except (TypeError, ValueError):
-                return 0.0
+    def _score_pair(self, claim: str, evidence: str, claim_embedding=None) -> Dict[str, float]:
+        if claim_embedding is None:
+            claim_embedding = self.embedder.encode([claim])
+        evidence_embedding = self.embedder.encode([evidence])
+        semantic = float(cosine_similarity(claim_embedding, evidence_embedding)[0][0])
+        semantic = max(0.0, min(1.0, semantic))
+        lexical = self.lexical_overlap_score(claim, evidence)
+        exact = self._exact_support_score(claim, evidence)
+        evidence_support = max(exact, semantic, 0.62 * semantic + 0.38 * lexical)
+        if exact >= 0.90:
+            evidence_support = max(evidence_support, exact)
+        return {
+            "semantic_score": round(semantic, 6),
+            "lexical_score": round(lexical, 6),
+            "exact_score": round(exact, 6),
+            "evidence_support_score": round(max(0.0, min(1.0, evidence_support)), 6),
+        }
 
-        return (
-            as_float("evidence_credibility_score"),
-            as_float("final_score"),
-            as_float("factual_assertion_score"),
-        )
-
-    def _prepare_support_evidence(self, evidence_list: list[Any]) -> list[tuple[int, dict[str, Any], str]]:
-        prepared: list[tuple[int, dict[str, Any], str]] = []
-        for original_index, raw_item in enumerate(evidence_list):
-            if isinstance(raw_item, dict):
-                item = dict(raw_item)
-                if "evidence_type" not in item or "evidence_credibility_score" not in item:
-                    item = annotate_evidence(item)
-                text = self._extract_text(item).strip()
-            else:
-                text = self._extract_text(raw_item).strip()
-                item = annotate_evidence({"text": text, "metadata": {}})
-            if not text:
-                continue
-            if not is_credible_support_evidence(item, min_credibility=0.15):
-                continue
-            prepared.append((original_index, item, text))
-        prepared.sort(key=lambda entry: self._rank_evidence_for_support(entry[1]), reverse=True)
-        return prepared
-
-    def _select_combined_support_items(
-        self,
-        prepared: list[tuple[int, dict[str, Any], str]],
-        limit: int = 3,
-    ) -> list[tuple[int, dict[str, Any], str]]:
-        factual = [entry for entry in prepared if entry[1].get("evidence_type") == FACTUAL]
-        source = factual if factual else prepared
-        return source[: max(1, limit)]
-
-    def _score_claim_internal(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
-        empty_result = {
+    def _empty_result(self, claim: str) -> dict[str, Any]:
+        return {
             "claim": claim,
             "score": 0.0,
             "raw_similarity_score": 0.0,
             "semantic_score": 0.0,
             "lexical_score": 0.0,
+            "exact_score": 0.0,
+            "evidence_support_score": 0.0,
             "best_evidence_index": None,
             "best_evidence": None,
+            "nli_evidence_text": "",
             "rule_flags": [],
-            "rule_categories": [],
             "factual_consistency": {"flags": [], "details": {}},
             "best_single_score": 0.0,
             "combined_context_score": 0.0,
-            "combined_evidence": "",
-            "combined_evidence_indices": [],
-            "combined_evidence_types": [],
             "used_combined_evidence": False,
             "factual_exact_match": False,
-            "evidence_confidence": 0.0,
-            "no_factual_evidence": True,
+            "definition_concept_matches": [],
         }
-        if not claim.strip() or not evidence_list:
-            return dict(empty_result)
 
-        prepared = self._prepare_support_evidence(evidence_list)
-        if not prepared:
-            result = dict(empty_result)
-            result["rule_flags"] = ["no_factual_evidence"]
-            result["rule_categories"] = ["no_factual_evidence"]
-            return result
+    def _score_claim_internal(self, claim: str, evidence_list: list[Any]) -> dict[str, Any]:
+        if not claim.strip() or not evidence_list:
+            return self._empty_result(claim)
+
+        evidence_texts = [self._extract_text(item) for item in evidence_list]
+        evidence_texts = [text for text in evidence_texts if text and text.strip()]
+        if not evidence_texts:
+            return self._empty_result(claim)
 
         clean_claim = normalize_for_detection(claim)
-        evidence_texts = [entry[2] for entry in prepared]
         clean_evidence_texts = [normalize_for_detection(text) for text in evidence_texts]
         claim_embedding = self.embedder.encode([clean_claim])
-        evidence_embeddings = self.embedder.encode(clean_evidence_texts)
-        similarities = cosine_similarity(claim_embedding, evidence_embeddings)[0]
 
-        best_score = 0.0
-        best_semantic_score = 0.0
-        best_lexical_score = 0.0
-        best_prepared_index: int | None = None
-        for index, semantic_score in enumerate(similarities):
-            lexical_score = self.lexical_overlap_score(clean_claim, clean_evidence_texts[index])
-            exact_score = self._exact_support_score(clean_claim, clean_evidence_texts[index])
-            concept_score = self.concept_coverage_score(clean_claim, clean_evidence_texts[index])
-            hybrid_score = max(float(semantic_score), exact_score)
-            if concept_score >= 0.65:
-                hybrid_score = max(hybrid_score, 0.78)
-            elif concept_score >= 0.40:
-                hybrid_score = max(hybrid_score, 0.50)
-            if lexical_score >= 0.55:
-                hybrid_score = max(hybrid_score, lexical_score)
-            if hybrid_score > best_score:
-                best_score = hybrid_score
-                best_semantic_score = float(semantic_score)
-                best_lexical_score = float(lexical_score)
-                best_prepared_index = index
+        best_index: int | None = None
+        best_pair: Dict[str, float] | None = None
+        for index, evidence_text in enumerate(clean_evidence_texts):
+            pair = self._score_pair(clean_claim, evidence_text, claim_embedding=claim_embedding)
+            if best_pair is None or pair["evidence_support_score"] > best_pair["evidence_support_score"]:
+                best_pair = pair
+                best_index = index
 
-        combined_items = self._select_combined_support_items(prepared, limit=3)
-        combined_text = " ".join(normalize_for_detection(entry[2]) for entry in combined_items)[:4000]
-        combined_score = 0.0
-        combined_semantic_score = 0.0
-        combined_lexical_score = 0.0
-        if combined_text:
-            # Combined verification is explicitly limited to the top factual
-            # chunks when available, preventing examples/tutorials from leaking
-            # into support decisions.
-            exact_combined = self._exact_support_score(clean_claim, combined_text)
-            combined_lexical_score = self.lexical_overlap_score(clean_claim, combined_text)
-            combined_concept_score = self.concept_coverage_score(clean_claim, combined_text)
-            combined_score = max(exact_combined, combined_lexical_score)
-            if combined_concept_score >= 0.65:
-                combined_score = max(combined_score, 0.78)
-            elif combined_concept_score >= 0.40:
-                combined_score = max(combined_score, 0.50)
-            if combined_score < 0.55:
-                combined_pair_score, combined_semantic_score, combined_pair_lexical = self._score_text_pair(
-                    clean_claim,
-                    combined_text,
-                    claim_embedding=claim_embedding,
-                )
-                combined_score = max(combined_score, combined_pair_score)
-                combined_lexical_score = max(combined_lexical_score, combined_pair_lexical)
-            else:
-                # Still compute the semantic component once for the final support
-                # formula when lexical/exact support already shows grounding.
-                _, combined_semantic_score, _ = self._score_text_pair(
-                    clean_claim,
-                    combined_text,
-                    claim_embedding=claim_embedding,
-                )
+        best_pair = best_pair or {"semantic_score": 0.0, "lexical_score": 0.0, "exact_score": 0.0, "evidence_support_score": 0.0}
+        best_evidence = evidence_texts[best_index] if best_index is not None else ""
+        best_evidence_clean = clean_evidence_texts[best_index] if best_index is not None else ""
 
-        used_combined = combined_score > best_score
-        raw_support_score = max(best_score, combined_score)
-        best_evidence = evidence_texts[best_prepared_index] if best_prepared_index is not None else ""
-        best_evidence_clean = clean_evidence_texts[best_prepared_index] if best_prepared_index is not None else ""
-        best_original_index = prepared[best_prepared_index][0] if best_prepared_index is not None else None
-        evidence_for_rules = combined_text if used_combined and combined_text else best_evidence_clean
-        capped_score, flags, factual_result = self._apply_rule_caps(
-            clean_claim,
-            clean_evidence_texts,
-            evidence_for_rules,
-            raw_support_score,
-        )
-        factual_exact_match = self._factual_exact_match(clean_claim, evidence_for_rules, raw_support_score, flags)
+        # Combined evidence uses top-3 retrieved chunks, which is enough for most
+        # claims but avoids noisy long context.
+        combined_text = " ".join(clean_evidence_texts[: min(3, len(clean_evidence_texts))])[:3500]
+        combined_pair = self._score_pair(clean_claim, combined_text, claim_embedding=claim_embedding) if combined_text else best_pair
+        used_combined = combined_pair["evidence_support_score"] > best_pair["evidence_support_score"] + 0.03
+        scoring_evidence = combined_text if used_combined else best_evidence_clean
+        nli_evidence_text = scoring_evidence or best_evidence_clean
+
+        semantic_score = max(best_pair["semantic_score"], combined_pair["semantic_score"] if used_combined else best_pair["semantic_score"])
+        lexical_score = max(best_pair["lexical_score"], combined_pair["lexical_score"] if used_combined else best_pair["lexical_score"])
+        exact_score = max(best_pair["exact_score"], combined_pair["exact_score"] if used_combined else best_pair["exact_score"])
+        evidence_support = max(best_pair["evidence_support_score"], combined_pair["evidence_support_score"] if used_combined else best_pair["evidence_support_score"])
+
+        flags = self._missing_specific_evidence_flags(clean_claim, [scoring_evidence or best_evidence_clean])
+        factual_result = run_factual_consistency_checks(clean_claim, scoring_evidence or best_evidence_clean)
+        flags.extend(list(factual_result.get("flags", [])))
+        flags = list(dict.fromkeys(flags))
+
+        definition_matches: list[str] = []
+        if self._is_definition_like(clean_claim):
+            boost, definition_matches = self._concept_overlap_score(clean_claim, scoring_evidence or best_evidence_clean)
+            if boost > 0 and not any(flag in CRITICAL_FLAGS for flag in flags):
+                evidence_support = max(evidence_support, boost)
+                lexical_score = max(lexical_score, min(0.72, boost))
+
+        capped_score = self._apply_rule_caps(evidence_support, flags)
+        factual_exact_match = self._factual_exact_match(clean_claim, scoring_evidence or best_evidence_clean, evidence_support, flags)
         if factual_exact_match:
             capped_score = max(capped_score, 0.72)
-
-        selected_confidences: list[float] = []
-        for entry in combined_items:
-            try:
-                selected_confidences.append(float(entry[1].get("evidence_credibility_score", 0.0) or 0.0))
-            except (TypeError, ValueError):
-                selected_confidences.append(0.0)
-        if best_prepared_index is not None:
-            try:
-                selected_confidences.append(float(prepared[best_prepared_index][1].get("evidence_credibility_score", 0.0) or 0.0))
-            except (TypeError, ValueError):
-                pass
-        evidence_confidence = max([raw_support_score, *selected_confidences], default=0.0)
-
-        semantic_component = max(best_semantic_score, combined_semantic_score)
-        lexical_component = max(best_lexical_score, combined_lexical_score)
 
         return {
             "claim": claim,
             "score": round(float(capped_score), 4),
-            "raw_similarity_score": round(float(raw_support_score), 4),
-            "semantic_score": round(float(semantic_component), 4),
-            "lexical_score": round(float(lexical_component), 4),
-            "best_evidence_index": best_original_index,
+            "raw_similarity_score": round(float(evidence_support), 4),
+            "semantic_score": round(float(semantic_score), 4),
+            "lexical_score": round(float(lexical_score), 4),
+            "exact_score": round(float(exact_score), 4),
+            "evidence_support_score": round(float(evidence_support), 4),
+            "best_evidence_index": best_index,
             "best_evidence": best_evidence,
+            "nli_evidence_text": nli_evidence_text,
             "rule_flags": flags,
-            "rule_categories": categorize_rule_flags(flags),
             "factual_consistency": factual_result,
-            "best_single_score": round(float(best_score), 4),
-            "combined_context_score": round(float(combined_score), 4),
-            "combined_evidence": " ".join(entry[2] for entry in combined_items),
-            "combined_evidence_indices": [entry[0] for entry in combined_items],
-            "combined_evidence_types": [entry[1].get("evidence_type") for entry in combined_items],
+            "best_single_score": round(float(best_pair["evidence_support_score"]), 4),
+            "combined_context_score": round(float(combined_pair["evidence_support_score"]), 4),
             "used_combined_evidence": bool(used_combined),
             "factual_exact_match": bool(factual_exact_match),
-            "evidence_confidence": round(float(max(0.0, min(1.0, evidence_confidence))), 4),
-            "no_factual_evidence": not any(entry[1].get("evidence_type") == FACTUAL for entry in prepared),
+            "definition_concept_matches": definition_matches,
         }
 
     def score_claim(self, claim: str, evidence_list: list[Any]) -> tuple[float, int | None]:

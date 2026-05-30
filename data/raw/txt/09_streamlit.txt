@@ -1,0 +1,1 @@
+Streamlit is a Python framework for building quick interactive web interfaces for machine learning demos. It is well suited for student projects because it allows a query box, metric cards, expandable evidence panels, and text outputs without frontend engineering. A typical local deployment command is streamlit run streamlit_app.py.

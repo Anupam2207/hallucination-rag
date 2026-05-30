@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, List
 
 from src.config import get_config_value
 from src.paths import CHUNKS_DIR
+from src.retrieval.query_focus import sparse_query_tokens
 from src.utils.json_utils import load_jsonl
 
 
@@ -48,6 +49,11 @@ class BM25SparseRetriever:
 
     @classmethod
     def query_tokens(cls, query: str) -> List[str]:
+        # Use the same focus-aware query tokenizer as hybrid retrieval so generic
+        # relation words do not dominate BM25.
+        focused = sparse_query_tokens(query)
+        if focused:
+            return focused
         tokens = cls.tokenize(query)
         filtered = [token for token in tokens if token not in _STOPWORDS]
         return filtered or tokens

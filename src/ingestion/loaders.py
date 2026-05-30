@@ -40,6 +40,10 @@ def _should_skip_file(file_path: Path) -> tuple[bool, str]:
     suffix = file_path.suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         return True, "unsupported_extension"
+
+    pdf_only = bool(get_config_value("settings", "knowledge_base", "pdf_only", default=True))
+    if pdf_only and suffix != ".pdf":
+        return True, "pdf_only_mode"
     if suffix != ".pdf":
         return False, ""
 

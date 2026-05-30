@@ -1,0 +1,1 @@
+Ollama is a local runtime that allows users to run language models on their own machine. It provides a local API and is convenient for lightweight student projects because it avoids per-token API cost during repeated experiments.

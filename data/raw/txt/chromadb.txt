@@ -1,0 +1,1 @@
+ChromaDB is an open-source embedding database commonly used in lightweight RAG applications. It supports persistent local storage, metadata filtering, and similarity-based retrieval.

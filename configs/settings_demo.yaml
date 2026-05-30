@@ -14,7 +14,8 @@ retrieval:
   rrf_k: 60
   answerability_threshold: 0.45
 detection:
-  enable_nli: false
+  enable_nli: true
+  nli_model: "cross-encoder/nli-deberta-v3-small"
   support_threshold: 0.70
   weak_support_threshold: 0.45
   answerability_threshold: 0.45
@@ -24,7 +25,8 @@ detection:
   similarity_support_threshold: 0.70
   similarity_warning_threshold: 0.45
 verification:
-  enable_nli: false
+  enable_nli: true
+  nli_model: "cross-encoder/nli-deberta-v3-small"
   nli_device: cpu
 knowledge_base:
   mode: demo

@@ -1,0 +1,1 @@
+Kubernetes is commonly used to orchestrate containers across clusters.

@@ -1,346 +1,446 @@
-# hallucination-rag
+# Hallucination Detection and Correction in LLMs using RAG
 
-A final-year engineering research project for **claim-level hallucination detection and correction in retrieval-augmented generation (RAG) answers**.
-
-The system retrieves evidence, checks whether the query is answerable from that evidence, splits generated answers into factual claims, scores each claim as `supported`, `weak_support`, or `unsupported`, optionally verifies claims with NLI, corrects unsupported answers using evidence only, and verifies the corrected answer again.
+Project that demonstrates how to detect and correct unsupported claims in LLM answers using retrieval-augmented generation (RAG).
 
 ## What this project does
 
-`hallucination-rag` is designed to be both demo-friendly and paper-ready:
+The system performs the following pipeline:
 
-- It runs in low-resource demo mode on a laptop by default.
-- It supports a heavier research mode with optional NLI verification.
-- It reports claim-level detection metrics, retrieval metrics, correction metrics, ablations, confusion matrices, and qualitative examples.
-- It avoids relying on hardcoded single-demo rules by mapping rule findings into reusable research categories such as `numeric_mismatch`, `temporal_mismatch`, `entity_mismatch`, `definition_mismatch`, `unsupported_method_claim`, and `unsupported_task_claim`.
+1. Accept a user query.
+2. Generate a raw LLM answer using a local Ollama model.
+3. Retrieve supporting passages from a local knowledge base using dense embeddings and ChromaDB.
+4. Split the answer into claim-like sentences.
+5. Score each claim against retrieved evidence with cosine similarity.
+6. Mark claims as supported, partially supported, or unsupported.
+7. Rewrite the answer using the retrieved evidence and the original answer.
+8. Show before/after support metrics.
 
-## Architecture
+## Project status
 
-```text
-User query
-  |
-  v
-Ingestion and indexing
-  - load documents from data/raw
-  - clean and chunk documents
-  - build dense vector index and BM25 sparse index
-  |
-  v
-Hybrid retrieval
-  - dense retrieval
-  - BM25 retrieval
-  - reciprocal-rank fusion
-  - evidence intent and credibility scoring
-  |
-  v
-Answerability gate
-  - rejects empty, example-only, reference-only, or semantically related but fact-missing evidence
-  - stricter checks for who/when/where/founded/introduced/invented/date/year questions
-  |
-  v
-Answer generation
-  - Ollama LLM when available
-  - evidence-only fallback in demo/offline mode
-  |
-  v
-Claim extraction
-  - fast sentence extractor
-  - optional atomic splitting for bullets, numbered lists, semicolons, and conjunction-heavy facts
-  |
-  v
-Claim verification
-  - semantic/lexical support scoring
-  - factual consistency rules
-  - optional NLI entailment/contradiction check
-  |
-  v
-Correction
-  - rewrite unsupported answers using evidence only
-  - preserve supported answers
-  - repair unsafe or malformed corrections
-  |
-  v
-Post-correction verification and metrics
-```
+This version focuses on making the knowledge-base preparation, vector indexing, and single-query pipeline reproducible and runnable.
 
-## Repository layout
+Implemented in this update:
+- raw document ingestion for txt, md, json, and pdf
+- lightweight preprocessing
+- sentence-aware chunking
+- reproducible ChromaDB index building
+- single-query pipeline runner
+- working Streamlit entry point
+- correction that uses the original raw answer
+- correction prompt safeguards against common RAG hallucinations such as unsupported fine-tuning claims
+- hybrid support scoring with semantic similarity plus narrow rule-based caps for specific unsupported details
+- basic evaluation metrics
+- sample corpus and demo queries
 
-```text
-configs/                 Runtime, model, and prompt configuration
-configs/settings.yaml    Base config with demo-safe defaults
-configs/settings_demo.yaml
-configs/settings_research.yaml
-data/raw/                Source documents kept in the repository
-data/evaluation/         Manual-answer evaluation sets
-scripts/                 Ingestion, indexing, evaluation, ablation, and utility scripts
-src/                     Core package
-src/detection/           Claim extraction, support scoring, NLI, factual rules
-src/retrieval/           Dense, sparse, hybrid retrieval, vector store, evidence scoring
-src/generation/          Base answer generation and correction
-src/evaluation/          Detection, correction, retrieval, and span metrics
-tests/                   Unit and regression tests
-docs/                    Methodology and experiment notes
-paper_artifacts/         Generated tables, figures, metrics, and qualitative examples
-```
+Still reserved for later phases:
+- NLI verifier
+- stronger batch evaluation and paper-grade experiments
+- richer UI polish
 
-`data/processed`, `data/chunks`, `db/chroma`, `outputs`, and `results` are rebuildable artifacts and are ignored by Git.
+## Recommended hardware/runtime
+
+- Windows laptop
+- Python 3.10+
+- Ollama installed and running locally
+- Small local model such as `llama3.2:3b`
 
 ## Setup
 
-Use Python 3.10 or newer.
+Create and activate a virtual environment, then install dependencies:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+.venv\Scripts\activate
+pip install --upgrade pip
 pip install -r requirements.txt
-cp .env.example .env             # optional; do not commit .env
-python scripts/check_setup.py
 ```
 
-The default demo profile does not require NLI and can run without downloading sentence-transformer weights. It uses a deterministic hashing embedder unless you switch to research mode.
-
-## Demo mode
-
-Demo mode is the default and is configured in `configs/settings_demo.yaml`.
+Make sure Ollama is installed and the model is available:
 
 ```bash
-export HALLUCINATION_RAG_PROFILE=demo
-python scripts/check_setup.py
+ollama pull llama3.2:3b
 ```
 
-Demo mode choices:
-
-- NLI disabled by default.
-- Hashing-vectorizer embedding backend for offline/low-memory runs.
-- Hybrid retrieval remains enabled, but dense embeddings are lightweight.
-- Ollama is optional. If the Ollama Python package or local service is unavailable, the pipeline returns an evidence-only fallback answer and records a warning.
-
-Important demo thresholds are configurable in `configs/settings.yaml` and `configs/settings_demo.yaml`:
-
-```yaml
-retrieval:
-  top_k: 4
-  dense_top_k: 8
-  sparse_top_k: 8
-  rrf_k: 60
-  answerability_threshold: 0.45
-
-detection:
-  support_threshold: 0.70
-  weak_support_threshold: 0.45
-  answerability_threshold: 0.45
-  nli_entailment_threshold: 0.60
-  nli_contradiction_threshold: 0.60
-```
-
-## Research mode
-
-Research mode is configured in `configs/settings_research.yaml`.
+## Sanity check
 
 ```bash
-export HALLUCINATION_RAG_PROFILE=research
 python scripts/check_setup.py
+python scripts/test_ollama.py
 ```
 
-Research mode choices:
+## Build the knowledge base
 
-- NLI enabled by default.
-- Larger retrieval candidate pools.
-- Research PDFs included during ingestion.
-- Embedding backend set to `auto`, so sentence-transformers are used when available and the hash fallback is still allowed.
-
-NLI is intentionally optional because cross-encoder NLI models can be slow and memory-heavy on 8 GB systems. The code falls back safely if the NLI model is unavailable.
-
-## Ingest documents
-
-Place source files under one of these directories:
-
-```text
-data/raw/txt
-data/raw/md
-data/raw/json
-data/raw/pdf
-```
-
-Then run:
+### 1) Ingest raw documents
 
 ```bash
 python scripts/ingest_documents.py
 ```
 
-This creates `data/processed/cleaned_documents.jsonl` and `data/chunks/chunks.jsonl`.
+This creates:
+- `data/processed/cleaned_documents.jsonl`
+- `data/processed/corpus_metadata.csv`
+- `data/chunks/chunks.jsonl`
+- `data/chunks/chunk_metadata.csv`
 
-## Build the index
+### 2) Build the vector index
 
 ```bash
 python scripts/build_vector_index.py --reset
 ```
 
-The vector store uses ChromaDB when installed. If `chromadb` is unavailable, it automatically uses a small JSONL-backed cosine-search store under `db/chroma`, so the project remains runnable on a laptop.
-
-## Run one query
+## Run a single query in the terminal
 
 ```bash
 python scripts/run_single_query.py --query "What is retrieval-augmented generation?"
 ```
 
-The JSON output includes retrieved evidence, answerability status, raw answer, corrected answer, claim-level labels, rule flags, rule categories, and before/after metrics.
-
-## Run the Streamlit app
+## Run the Streamlit UI
 
 ```bash
 streamlit run streamlit_app.py
 ```
 
-Run ingestion and indexing first. The app displays raw and corrected answers, evidence passages, claim labels, support scores, hallucinated spans, warnings, and correction metrics.
+## Sample data
 
-## Run tests
+The repository ships with a small curated demo corpus under `data/raw/` and a small benchmark under `data/eval/benchmark_queries.jsonl`.
 
-```bash
-pytest -q
-```
+## Important notes
 
-The test suite covers ingestion utilities, retrieval, evidence intent, answerability, claim extraction, support scoring, NLI fallback, correction safety, evaluation metrics, and regression cases.
+- If Ollama is not running, answer generation will fail with a readable error.
+- If the Chroma index has not been built yet, retrieval will return no evidence and the UI or CLI will show a warning.
+- The hallucination detector currently uses similarity-based support scoring plus a small rule-based safeguard for common unsupported details. The NLI verifier is intentionally left for a later phase.
 
-## Run final evaluation
+## Chroma telemetry warning on Windows
 
-The final benchmark uses fixed manual answers in `data/evaluation/final_eval_set.jsonl`, so results are reproducible without calling an LLM.
-
-```bash
-python scripts/run_final_evaluation.py --retrieval hybrid --nli off --correction on
-```
-
-This writes:
+If you see messages such as:
 
 ```text
-paper_artifacts/tables/final_detection_results.csv
-paper_artifacts/metrics/final_detection_summary.json
-paper_artifacts/tables/final_correction_results.csv
-paper_artifacts/metrics/final_correction_summary.json
-paper_artifacts/tables/retrieval_results.csv
-paper_artifacts/metrics/retrieval_summary.json
-paper_artifacts/figures/confusion_matrix.png
-paper_artifacts/qualitative_examples/qualitative_success_cases.md
-paper_artifacts/qualitative_examples/qualitative_failure_cases.md
+Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
 ```
 
-You can also run the components separately:
+the pipeline can still run. It is caused by a Chroma/PostHog dependency mismatch in some environments. This project pins `posthog<4.0.0` in `requirements.txt` to reduce the warning. If the warning continues after updating this zip, run:
 
 ```bash
-python scripts/evaluate_retrieval.py --retrieval hybrid
-python scripts/evaluate_detection.py --nli off --rules on
-python scripts/evaluate_correction.py --nli off
+pip install "posthog<4.0.0"
 ```
 
-## Reproduce paper tables and ablations
+Then rebuild or rerun the query.
+
+## Recommended validation order
 
 ```bash
-python scripts/run_ablation_study.py
+python scripts/check_setup.py
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+python scripts/run_single_query.py --query "What is retrieval-augmented generation?"
+streamlit run streamlit_app.py --server.fileWatcherType none
 ```
 
-The ablation script compares:
+## Latest detector/UI update
 
-- BM25-only retrieval
-- dense-only retrieval
-- hybrid retrieval
-- similarity-only detection
-- similarity + factual rules
-- similarity + NLI
-- similarity + factual rules + NLI
-- full system with correction
+This version adds the following stability improvements:
 
-It writes:
+- Correction status now has four states: `improved`, `partially_improved`, `no_change`, and `worsened`.
+- The UI no longer shows a green success message when factual improvement is exactly zero.
+- Claim tables are compact by default and show long evidence text inside expandable detail sections.
+- The detector returns rule flags and optional NLI fields for each claim.
+- NLI verification is optional through `configs/settings.yaml` using `detection.enable_nli`.
+
+By default, NLI is disabled to keep the Windows laptop demo lightweight. To test the real NLI model, run:
+
+```bash
+python scripts/test_nli_verifier.py --enable
+```
+
+If the model is unavailable or cannot be downloaded, the app falls back to similarity + rule-based verification.
+
+## Hybrid retrieval update
+
+This version can use hybrid retrieval when `configs/settings.yaml` contains:
+
+```yaml
+retrieval:
+  mode: "hybrid"
+```
+
+Hybrid retrieval combines:
+
+- dense semantic retrieval from ChromaDB
+- lightweight BM25 sparse retrieval over `data/chunks/chunks.jsonl`
+- Reciprocal Rank Fusion (RRF)
+
+RRF score is computed as:
 
 ```text
-paper_artifacts/tables/ablation_results.csv
-paper_artifacts/tables/ablation_summary.json
+score = 1 / (rrf_k + dense_rank) + 1 / (rrf_k + sparse_rank)
 ```
 
-Use real NLI in research mode with:
+Use this diagnostic script after building the vector index:
 
 ```bash
-export HALLUCINATION_RAG_PROFILE=research
-python scripts/run_ablation_study.py --enable-real-nli
+python scripts/test_hybrid_retrieval.py --query "What is retrieval-augmented generation?"
 ```
 
-## Metrics reported
+The evidence table now includes optional retrieval fields such as `rrf_score`, `dense_similarity`, `sparse_rank`, and `sparse_score`.
 
-Retrieval:
+## Bounded batch evaluation
 
-- `recall@k`
-- MRR
-- evidence keyword hit rate
-- answerability retrieval success
-
-Detection:
-
-- claim-level accuracy
-- precision, recall, F1
-- macro F1
-- confusion matrix
-- unsupported recall
-- false positive rate
-- false negative rate
-
-Correction:
-
-- correction success rate
-- hallucination reduction
-- support improvement
-- unsafe correction rate
-- corrected unsupported claim count
-- corrected critical unsupported claim count
-- no-change rate
-- malformed correction rate
-
-## Known limitations
-
-- The default demo embedder is deterministic and lightweight, but it is not a replacement for sentence-transformer embeddings in a research-quality retrieval study.
-- Rule-based factual checks catch common numeric, temporal, entity, definition, task, method, training, application, and performance hallucinations, but they are not a complete logical verifier.
-- NLI verification improves contradiction checks when available, but it is disabled by default to fit low-memory systems.
-- The correction stage is evidence-constrained and conservative. It may refuse instead of producing a fluent answer when evidence is incomplete.
-- PDF extraction quality depends on the source PDF text layer.
-- The manual 100-example dataset is suitable for a final-year project paper, but larger external benchmarks are still needed for stronger claims.
-
-## Troubleshooting
-
-### Ollama
-
-If `run_single_query.py` reports an Ollama warning, the project still runs using evidence-only fallback generation. To enable local LLM generation:
+The Streamlit and single-query pipeline remain sequential for stability. Batch evaluation supports conservative bounded processing:
 
 ```bash
-pip install ollama
-ollama serve
-ollama pull llama3.2:3b
+python scripts/run_batch_evaluation.py --limit 5 --max-workers 1 --max-llm-workers 1 --max-nli-workers 1
 ```
 
-Then rerun the query script.
+Keep these values low on the Windows laptop with 8 GB RAM and GTX 1050 Ti 4 GB VRAM.
 
-### ChromaDB
+## Retrieval upgrade: hybrid dense + sparse search
 
-If ChromaDB is not installed, the project automatically uses the JSONL vector-store fallback. To use ChromaDB explicitly:
+The retriever now supports two modes through `configs/settings.yaml`:
+
+```yaml
+retrieval:
+  mode: hybrid   # use "dense" to fall back to Chroma-only retrieval
+  dense_top_k: 8
+  sparse_top_k: 8
+  rrf_k: 60
+```
+
+Hybrid mode keeps the existing Chroma dense retriever and adds a lightweight dependency-free BM25 retriever over `data/chunks/chunks.jsonl`. Results are fused with Reciprocal Rank Fusion (RRF):
+
+```text
+RRF score = 1 / (k + dense_rank) + 1 / (k + sparse_rank)
+```
+
+This improves evidence retrieval for exact acronyms, names, dates, and technical keywords while preserving semantic retrieval quality.
+
+### Test hybrid retrieval
 
 ```bash
-pip install chromadb
+python scripts/test_hybrid_retrieval.py --query "What is retrieval-augmented generation?"
+```
+
+### Low-resource batch evaluation
+
+Batch evaluation remains conservative by default to avoid overloading local Ollama or optional NLI models on 8 GB RAM machines:
+
+```bash
+python scripts/run_batch_evaluation.py --limit 5 --max-workers 1 --max-llm-workers 1 --max-nli-workers 1
+```
+
+## Research-grade factual verification extensions
+
+This version adds a REFIND-inspired verification layer while preserving the original lightweight RAG pipeline.
+
+### Factual consistency checks
+
+The detector now compares factual values in each claim against the best retrieved evidence. It flags:
+
+- `numeric_mismatch_with_evidence` for conflicting years, dates, or numbers
+- `entity_mismatch_with_evidence` for simple same-relation entity conflicts
+
+Example:
+
+```text
+Claim: RAG was introduced in 2021.
+Evidence: RAG was introduced in 2020.
+Output: unsupported, highlighted span [2021]
+```
+
+Run:
+
+```bash
+python scripts/test_factual_consistency.py
+python scripts/test_span_highlighter.py
+```
+
+### Optional NLI verification
+
+NLI is implemented as an optional CPU-first layer. It treats retrieved evidence as the premise and the generated claim as the hypothesis.
+
+Config in `configs/settings.yaml`:
+
+```yaml
+verification:
+  enable_nli: false
+  nli_model: "cross-encoder/nli-deberta-v3-small"
+  nli_device: "cpu"
+  nli_max_evidence_chars: 900
+  nli_cache_enabled: true
+```
+
+For live demo on low-resource hardware, keep NLI disabled. For research evaluation, enable it and run:
+
+```bash
+python scripts/test_nli_verifier.py --enable
+```
+
+### REFIND-inspired span highlighting
+
+Exact REFIND CSR is not implemented because Ollama does not expose reliable token-level log probabilities. Instead, the system highlights suspicious factual spans triggered by retrieved-evidence checks, such as mismatched years, unsupported task examples, and unsupported fine-tuning claims.
+
+### Research evaluation
+
+A lightweight research evaluation script is provided:
+
+```bash
+python scripts/run_research_evaluation.py --limit 5
+```
+
+Outputs:
+
+```text
+results/research_eval_results.csv
+results/research_eval_summary.json
+```
+
+Recommended hardware settings:
+
+- NLI disabled for Streamlit demos
+- NLI enabled only for selected evaluation runs
+- CPU device for NLI/reranker
+- max workers = 1 on 8 GB RAM machines
+
+## Safety Fixes Added After Factual Verification Review
+
+The latest version adds a correction-safety layer so that the corrected answer cannot silently retain or introduce high-risk unsupported claims.
+
+Key safeguards:
+
+- Citation markers such as `[Evidence-1]` are stripped before claim extraction, factual consistency checks, NLI verification, and metric calculation. They are kept only in the final user-facing corrected answer.
+- Non-factual assistant phrases such as "I couldn't find..." or "Could you please provide more context?" are skipped during claim scoring.
+- Year/date/number claims are checked more strictly. If a claim says a year such as `2021` but the retrieved evidence does not support that year, the detector adds `claim_year_not_supported_by_evidence`.
+- Critical flags such as `fine_tuning_not_in_evidence`, `numeric_mismatch_with_evidence`, `claim_year_not_supported_by_evidence`, `entity_mismatch_with_evidence`, and `nli_contradiction` force unsupported labeling.
+- The pipeline includes a query-aware answerability gate. If the user asks for a specific fact that is not supported by retrieved evidence, the system returns a safe insufficient-evidence response instead of letting the LLM invent an answer.
+- After correction, the corrected answer is verified again. If critical unsupported corrected claims remain, a conservative repair pass removes the unsafe sentence.
+- Metrics now include `corrected_critical_unsupported_count`, `correction_safety_passed`, and an `unsafe` correction status.
+
+Recommended safety test:
+
+```bash
+python scripts/run_single_query.py --query "RAG was introduced in 2021."
+```
+
+Expected behavior: the system should not claim that RAG was introduced in 2021 unless the knowledge base explicitly supports that year.
+
+After adding or changing files in `data/raw/`, rebuild the knowledge base:
+
+```bash
+python scripts/ingest_documents.py
 python scripts/build_vector_index.py --reset
 ```
 
-### NLI
+## Latest Audit Improvements
 
-Demo mode keeps NLI off. For research mode:
+This version keeps the existing architecture but hardens the main pipeline.
+
+- Ingestion now uses PyMuPDF first for PDF extraction, falls back to pypdf, and logs loaded/skipped documents.
+- Preprocessing removes common PDF noise such as URLs, DOI/arXiv strings, page numbers, bibliography sections, isolated equations, emails, and affiliation-like lines while preserving definitions, years, and section headings.
+- Chunking remains sentence-aware and now stores `document_title`, `section_name`, `chunk_position`, and `importance_score` for better evidence ranking.
+- Hybrid retrieval still uses dense ChromaDB + BM25 + RRF, but ranking now also considers dense similarity, normalized sparse score, and section importance.
+- NLI remains optional. When enabled, contradiction decisions are protected by a topical-relevance guard so unrelated premise/claim pairs are not blindly treated as contradictions.
+- Pytest is restricted to the `tests/` directory to prevent CLI scripts under `scripts/` from being collected as tests.
+
+Recommended validation:
 
 ```bash
-export HALLUCINATION_RAG_PROFILE=research
-python scripts/evaluate_detection.py --nli on
+python -m compileall -q .
+pytest -q
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+python scripts/run_single_query.py --query "What is retrieval-augmented generation?"
 ```
 
-If model loading fails, the verifier returns `label='unavailable'` instead of crashing. Use `--nli off` for low-memory runs.
+## Latest audit fixes
 
-### Low-memory systems
+- Hybrid retrieval now applies topical gating so sparse-only noise from unrelated papers is demoted. Queries such as `What is ColBERT?` must retrieve chunks that actually mention ColBERT instead of unrelated abstract/introduction sections.
+- BM25 query processing removes common stopwords and avoids generic query expansion such as `abstract` and `introduction`, which previously caused irrelevant PDF sections to rank too high.
+- Fused retrieval ranking now combines dense similarity, normalized sparse score, section importance, topical relevance, and RRF score.
+- The pipeline has a complete safe execution path for answerable and non-answerable queries, including safe refusal for unsupported specific factual claims.
+- Claim extraction now skips heading-like pseudo-claims such as `The RAG process typically consists of two main stages:`.
 
-Recommended settings for 8 GB RAM:
 
-- Keep `HALLUCINATION_RAG_PROFILE=demo`.
-- Keep `runtime.embedding_backend: hash`.
-- Keep `verification.enable_nli: false`.
-- Use `--nli off` for evaluation scripts.
-- Keep `retrieval.top_k` between 3 and 5.
+## Corrected-answer scoring and citation handling
+
+Corrected answers may show evidence citations such as `[Evidence-1]` in the UI. These citations are display-only. Before claim extraction, factual consistency checks, NLI verification, and metric calculation, the system strips citation markers so citation numbers are not treated as factual numbers.
+
+`weak_support` means the retrieved evidence is related to the claim, but the claim is not fully verified. A correction is marked fully improved only when safety checks pass and the corrected answer has sufficiently grounded claims. If most corrected claims remain weakly supported, the status becomes `partially_improved` instead of an overconfident success.
+
+To create a clean deliverable zip without caches, local databases, generated chunks, or environment files, run:
+
+```bash
+python scripts/package_project.py --output hallucination-rag-clean.zip
+```
+
+
+## Latest correction-output policy
+
+The Streamlit UI now shows retrieved evidence separately as evidence cards. The user-facing corrected answer is intentionally clean and does not include inline `[Evidence-*]` citation markers. Evidence IDs remain available as metadata and in the retrieved-evidence panel. Detection, factual consistency checks, NLI verification, and metrics strip citations before scoring so citation numbers are never treated as factual numbers.
+
+Correction success is conservative: a result is marked as successful only when safety checks pass, hallucination does not increase, and at least one corrected claim is strongly supported. If the corrected answer is mostly weakly supported, the status is partial rather than a strong success.
+
+## REFIND-inspired research evaluation mode
+
+REFIND is the base research direction for this project, but this repository does not claim to reproduce REFIND's exact Context Sensitivity Ratio (CSR) method. Exact CSR requires token-level probabilities with and without retrieved context, while the current local generation backend uses Ollama and does not expose reliable token log probabilities for this workflow. Instead, the project implements a practical REFIND-inspired pipeline:
+
+- retrieval-augmented evidence grounding
+- claim-level support verification
+- factual consistency checks for years, numbers, entities, acronyms, and definitions
+- optional NLI verification
+- span-level hallucination highlighting
+- corrected-answer re-verification
+
+The span highlighter supports REFIND-style evaluation through character-level span IoU. Predicted hallucinated spans are compared with gold spans in the evaluation JSONL file.
+
+### Final evaluation dataset
+
+A lightweight final benchmark is provided at:
+
+```bash
+data/evaluation/final_eval_set.jsonl
+```
+
+It contains examples across RAG, ColBERT, TruthfulQA, hallucination causes, vehicle safety, smartphones, and AI newsrooms. Each record contains:
+
+- query
+- expected_answer_type
+- gold_supported_claims
+- gold_unsupported_claims
+- gold_hallucinated_spans
+- expected_evidence_keywords
+
+This dataset is intentionally small and local-friendly. It is suitable for M.Tech reporting and ablation experiments, but a larger manually labeled dataset is still required for strong journal-level claims.
+
+### Run final evaluation
+
+After ingestion and indexing:
+
+```bash
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+python scripts/run_final_evaluation.py
+```
+
+Ablation examples:
+
+```bash
+python scripts/run_final_evaluation.py --retrieval dense --nli off --correction on
+python scripts/run_final_evaluation.py --retrieval hybrid --nli off --correction on
+python scripts/run_final_evaluation.py --retrieval hybrid --nli on --correction on
+python scripts/run_final_evaluation.py --retrieval hybrid --nli off --correction off
+```
+
+Outputs are written to:
+
+```bash
+results/final_eval_results_<mode>.csv
+results/final_eval_summary_<mode>.json
+```
+
+The summary includes approximate precision, recall, F1, average span IoU, average support score, hallucination reduction, correction success rate, and evidence keyword hit rate.
+
+### Research limitations
+
+- Exact REFIND CSR is not implemented because Ollama does not expose reliable token probability comparisons.
+- NLI is optional and should remain selective on low-resource hardware.
+- The included final evaluation dataset is a scaffold, not a large benchmark.
+- For publication, expand the evaluation set and report ablations across dense retrieval, hybrid retrieval, NLI, and correction.

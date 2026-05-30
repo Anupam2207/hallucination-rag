@@ -24,12 +24,6 @@ PREDICTIONS_DIR = OUTPUTS_DIR / "predictions"
 REPORTS_DIR = OUTPUTS_DIR / "reports"
 FIGURES_DIR = OUTPUTS_DIR / "figures"
 
-PAPER_ARTIFACTS_DIR = PROJECT_ROOT / "paper_artifacts"
-PAPER_TABLES_DIR = PAPER_ARTIFACTS_DIR / "tables"
-PAPER_FIGURES_DIR = PAPER_ARTIFACTS_DIR / "figures"
-PAPER_QUALITATIVE_DIR = PAPER_ARTIFACTS_DIR / "qualitative_examples"
-PAPER_METRICS_DIR = PAPER_ARTIFACTS_DIR / "metrics"
-
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 SRC_DIR = PROJECT_ROOT / "src"
 
@@ -53,11 +47,6 @@ def ensure_directories() -> None:
         PREDICTIONS_DIR,
         REPORTS_DIR,
         FIGURES_DIR,
-        PAPER_ARTIFACTS_DIR,
-        PAPER_TABLES_DIR,
-        PAPER_FIGURES_DIR,
-        PAPER_QUALITATIVE_DIR,
-        PAPER_METRICS_DIR,
     ]
     for directory in required_dirs:
         directory.mkdir(parents=True, exist_ok=True)

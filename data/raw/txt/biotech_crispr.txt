@@ -1,0 +1,1 @@
+CRISPR gene editing is a biotechnology method used to make targeted changes to DNA. It commonly uses a Cas enzyme guided by RNA to locate a specific DNA sequence. CRISPR systems are adapted from bacterial immune mechanisms.

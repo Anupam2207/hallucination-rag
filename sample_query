@@ -1,0 +1,45 @@
+ollama pull llama3.2:3b
+python scripts/check_setup.py
+python scripts/ingest_documents.py
+python scripts/build_vector_index.py --reset
+
+python scripts/run_single_query.py --query "What is retrieval-augmented generation?" --top-k 6
+python scripts/run_single_query.py --query "Who introduced ColBERT and when?" --top-k 6
+python scripts/run_single_query.py --query "Explain Multi-factor authentication" --top-k 6
+python scripts/run_single_query.py --query "What is a black hole?" --top-k 6
+python scripts/run_single_query.py --query "Explain crop rotation" --top-k 6
+python scripts/run_single_query.py --query "What is the Eiffel Tower?" --top-k 6
+python scripts/run_single_query.py --query "What is CRISPR?" --top-k 6
+python scripts/run_single_query.py --query "Explain phishing" --top-k 6
+
+python scripts/run_single_query.py --query "Who won the 2024 Formula 1 World Championship?" --top-k 6
+python scripts/run_single_query.py --query "Who introduced RAG and when?" --top-k 6
+
+python scripts/run_single_query.py --query "Explain Kubernetes" --top-k 6
+
+
+
+
+
+
+
+python scripts/run_single_query.py --query "Who introduced ColBERT and when?" --top-k 6
+python scripts/run_single_query.py --query "What is ColBERT?" --top-k 6
+python scripts/run_single_query.py --query "What is Formula 1?" --top-k 6
+python scripts/run_single_query.py --query "Explain vehicle safety systems" --top-k 6
+python scripts/run_single_query.py --query "What is hallucination in LLMs?" --top-k 6
+
+
+
+
+
+
+
+
+
+
+
+python -m scripts.test_retrieval --query "What is ColBERT?"
+python -m scripts.test_retrieval --query "Who introduced RAG?"
+python -m scripts.test_retrieval --query "Explain Vehicle Safety Systems"
+python -m scripts.test_retrieval --query "Explain causes of hallucination in Large Language Models"

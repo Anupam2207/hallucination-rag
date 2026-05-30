@@ -1,0 +1,1 @@
+Claim extraction is the step that breaks a generated answer into smaller factual units. Sentence-level splitting is a simple and practical first approach for a student project. Once the answer is divided into claims, each claim can be checked separately against retrieved evidence.

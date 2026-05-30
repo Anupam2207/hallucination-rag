@@ -1,0 +1,1 @@
+Hallucination in a large language model refers to a fluent response that is factually wrong, unsupported, or invented. In practical systems, hallucinations can mislead users and reduce trust. A common mitigation strategy is to retrieve supporting evidence and check whether each claim is grounded in that evidence.

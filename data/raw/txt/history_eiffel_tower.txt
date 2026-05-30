@@ -1,9 +1,1 @@
-Eiffel Tower
-
-The Eiffel Tower is an iron lattice tower in Paris, France. It was designed by engineer Gustave Eiffel's company for the 1889 Exposition Universelle, a world's fair held to celebrate the centennial of the French Revolution.
-
-The tower was initially controversial because some artists and writers disliked its appearance. Over time, it became one of the most recognized landmarks in the world. It is located on the Champ de Mars near the Seine River.
-
-The Eiffel Tower was once among the tallest human-made structures in the world. It has served as a tourist attraction, observation tower, and radio transmission structure. Its design demonstrated the strength and flexibility of iron construction.
-
-When answering questions about the Eiffel Tower, it is important not to confuse the designer, location, and purpose. Gustave Eiffel is associated with the tower, but several engineers contributed to the project through Eiffel's company.
+When answering questions about the Eiffel Tower, it is important not to confuse it with other Paris landmarks. The Eiffel Tower is an iron lattice tower in Paris, France. It was designed by engineer Gustave Eiffel's company for the 1889 Exposition Universelle.

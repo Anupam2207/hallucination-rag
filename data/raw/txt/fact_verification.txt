@@ -1,0 +1,1 @@
+Fact verification checks whether a claim is supported, contradicted, or not determined by evidence. In lightweight student projects, claim support scoring is often implemented before adding a stronger NLI verifier.
